@@ -1,0 +1,20 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: Deploy Helm into an EKS cluster
+Parameters:
+  EKSCAData:
+    Type: String
+  EKSEndpoint:
+    Type: String
+  EKSArn:
+    Type: String
+  TillerInstallLambdaArn:
+    Type: String
+Resources:
+  TillerInstall:
+    Type: "AWS::CloudFormation::CustomResource"
+    Version: '1.0'
+    Properties:
+      ServiceToken: !Ref TillerInstallLambdaArn
+      EKSCAData: !Ref EKSCAData
+      EKSEndpoint: !Ref EKSEndpoint
+      EKSArn: !Ref EKSArn
