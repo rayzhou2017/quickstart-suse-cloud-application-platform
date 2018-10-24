@@ -180,6 +180,13 @@ Resources:
         QSS3BucketName: !Ref QSS3BucketName
         QSS3KeyPrefix: !Sub '${QSS3KeyPrefix}submodules/quickstart-linux-bastion/'
         RemoteAccessCIDR: !Ref RemoteAccessCIDR
+        AlternativeInitializationScript: !Sub 'https://${QSS3BucketName}.s3.amazonaws.com/${QSS3KeyPrefix}scripts/bastion_bootstrap.sh'
+        AlternativeIAMRole: !GetAtt IamStack.Outputs.BastionRole
+        EnvironmentVariables: !Sub >
+          K8S_ROLE_ARN=${IamStack.Outputs.ControlPlaneProvisionRoleArn},
+          K8S_CLUSTER_NAME=${EKSControlPlane.EKSName},
+          K8S_CA_DATA=${EKSControlPlane.CAData},
+          K8S_ENDPOINT=${EKSControlPlane.EKSEndpoint}
   NodeGroupStack:
     Type: "AWS::CloudFormation::Stack"
     Properties:

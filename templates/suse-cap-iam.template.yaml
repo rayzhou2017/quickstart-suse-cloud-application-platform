@@ -92,6 +92,10 @@ Resources:
           Action: sts:AssumeRole
         - Effect: Allow
           Principal:
+            AWS: !GetAtt BastionRole.Arn
+          Action: sts:AssumeRole
+        - Effect: Allow
+          Principal:
             Service: lambda.amazonaws.com
           Action: sts:AssumeRole
       Policies:
@@ -205,6 +209,40 @@ Resources:
       - arn:aws:iam::aws:policy/AmazonEKSWorkerNodePolicy
       - arn:aws:iam::aws:policy/AmazonEKS_CNI_Policy
       - arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly
+  BastionRole:
+    Type: "AWS::IAM::Role"
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service: ec2.amazonaws.com
+          Action: sts:AssumeRole
+      Policies:
+      - PolicyName: QSBucketAccess
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+          - Effect: Allow
+            Action: s3:GetObject
+            Resource: !Sub "arn:aws:s3:::${QSS3BucketName}/*"
+          - Effect: Allow
+            Action:
+            - logs:CreateLogStream
+            - logs:GetLogEvents
+            - logs:PutLogEvents
+            - logs:DescribeLogGroups
+            - logs:DescribeLogStreams
+            - logs:PutRetentionPolicy
+            - logs:PutMetricFilter
+            - logs:CreateLogGroup
+            Resource: !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:*:*"
+          - Effect: Allow
+            Action:
+            - ec2:AssociateAddress
+            - ec2:DescribeAddresses
+            Resource: "*"
 Outputs:
   DeleteBucketContentsRoleArn:
     Value: !If [ CreateDeleteBucketContentsRole, !GetAtt DeleteBucketContentsRole.Arn, "" ]
@@ -218,3 +256,5 @@ Outputs:
     Value: !GetAtt ControlPlaneProvisionRole.Arn
   NodeInstanceProfile:
     Value: !Ref NodeInstanceProfile
+  BastionRole:
+    Value: !Ref BastionRole

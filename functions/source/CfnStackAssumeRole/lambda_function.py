@@ -204,7 +204,7 @@ def assume_role(session: Session,
 
 
 def rand_string(l):
-    return ''.join(random.choice(string.ascii_uppercase + string.ascii_lowercase + string.digits) for _ in range(l))
+    return ''.join(random.choice(string.ascii_uppercase + string.digits) for _ in range(l))
 
 
 def get_cfn_parameters(event):
@@ -309,7 +309,13 @@ def create(event, context):
         cfn_capabilities = event['ResourceProperties']['Capabilities']
     cfn_client = get_client("cloudformation", event, context)
     params = get_cfn_parameters(event)
-    stack_name = event['ResourceProperties']['ParentStackId'].split("/")[1][:119] + "-" + rand_string(8)
+    prefix = event['ResourceProperties']['ParentStackId'].split("/")[1]
+    suffix = "-" + event["LogicalResourceId"] + "-" + rand_string(13)
+    prefix_length = len(prefix)
+    suffix_length = len(suffix)
+    if prefix_length + suffix_length > 128:
+        prefix = prefix[:128-suffix_length]
+    stack_name = prefix + suffix
     response = cfn_client.create_stack(
         StackName=stack_name,
         TemplateURL=event['ResourceProperties']['TemplateURL'],
