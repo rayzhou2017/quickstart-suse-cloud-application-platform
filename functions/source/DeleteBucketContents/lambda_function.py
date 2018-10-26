@@ -5,10 +5,45 @@
 #  This file is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, express or implied.
 #  See the License for the specific language governing permissions and limitations under the License.
 
+from __future__ import print_function
 import boto3
-import cfnresponse
-import json
 import traceback
+from botocore.vendored import requests
+import json
+
+
+SUCCESS = "SUCCESS"
+FAILED = "FAILED"
+
+
+def send(event, context, response_status, response_data, physical_resource_id):
+    response_url = event['ResponseURL']
+
+    print(response_url)
+
+    response_body = dict()
+    response_body['Status'] = response_status
+    response_body['Reason'] = 'See the details in CloudWatch Log Stream: ' + context.log_stream_name
+    response_body['PhysicalResourceId'] = physical_resource_id or context.log_stream_name
+    response_body['StackId'] = event['StackId']
+    response_body['RequestId'] = event['RequestId']
+    response_body['LogicalResourceId'] = event['LogicalResourceId']
+    response_body['Data'] = response_data
+
+    json_response_body = json.dumps(response_body)
+
+    print("Response body:\n" + json_response_body)
+
+    headers = {
+        'content-type': '',
+        'content-length': str(len(json_response_body))
+    }
+
+    try:
+        response = requests.put(response_url, data=json_response_body, headers=headers)
+        print("Status code: " + response.reason)
+    except Exception as e:
+        print("send(..) failed executing requests.put(..): " + str(e))
 
 
 def lambda_handler(event, context):
@@ -18,16 +53,16 @@ def lambda_handler(event, context):
             s3 = boto3.client('s3')
             # Delete KeyBucket contents
             if "KeyBucket" in event["ResourceProperties"].keys():
-                print 'Getting KeyBucket objects...'
+                print('Getting KeyBucket objects...')
                 s3objects = s3.list_objects_v2(Bucket=event["ResourceProperties"]["KeyBucket"])
                 if 'Contents' in s3objects.keys():
-                    print 'Deleting KeyBucket objects %s...' % str(
-                        [{'Key': key['Key']} for key in s3objects['Contents']])
+                    print('Deleting KeyBucket objects %s...' % str(
+                        [{'Key': key['Key']} for key in s3objects['Contents']]))
                     s3.delete_objects(Bucket=event["ResourceProperties"]["KeyBucket"],
                                       Delete={'Objects': [{'Key': key['Key']} for key in s3objects['Contents']]})
                 # Delete Output bucket contents and versions
             if "OutputBucket" in event["ResourceProperties"].keys():
-                print 'Getting OutputBucket objects...'
+                print('Getting OutputBucket objects...')
                 objects = []
                 versions = s3.list_object_versions(Bucket=event["ResourceProperties"]["OutputBucket"])
                 while versions:
@@ -47,4 +82,4 @@ def lambda_handler(event, context):
     except Exception as e:
         print(e)
         traceback.print_exc()
-    cfnresponse.send(event, context, cfnresponse.SUCCESS, {}, '')
+    send(event, context, SUCCESS, {}, '')

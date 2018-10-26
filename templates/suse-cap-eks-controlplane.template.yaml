@@ -7,6 +7,10 @@ Parameters:
     Type: List<AWS::EC2::Subnet::Id>
   RoleArn:
     Type: String
+  NodeInstanceRole:
+    Type: String
+  KubeManifestLambdaArn:
+    Type: String
 Resources:
   EKS:
     Type: "AWS::EKS::Cluster"
@@ -15,6 +19,27 @@ Resources:
         SecurityGroupIds: !Ref SecurityGroupIds
         SubnetIds: !Ref SubnetIds
       RoleArn: !Ref RoleArn
+  EkeNodeConfigMap:
+    Type: "Custom::KubeManifest"
+    Version: '1.0'
+    Properties:
+      ServiceToken: !Ref KubeManifestLambdaArn
+      EKSCAData: !GetAtt EKS.CertificateAuthorityData
+      EKSEndpoint: !GetAtt EKS.Endpoint
+      EKSArn: !GetAtt EKS.Arn
+      Manifest:
+        apiVersion: v1
+        kind: ConfigMap
+        metadata:
+          name: aws-auth
+          namespace: kube-system
+        data:
+          mapRoles: !Sub |
+            - rolearn: ${NodeInstanceRole}
+              username: system:node:{{EC2PrivateDNSName}}
+              groups:
+                - system:bootstrappers
+                - system:nodes
 Outputs:
   EksArn:
     Value: !GetAtt EKS.Arn

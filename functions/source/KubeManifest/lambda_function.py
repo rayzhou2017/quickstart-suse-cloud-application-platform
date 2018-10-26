@@ -100,7 +100,7 @@ def create_kubeconfig(endpoint, cluster_name, ca_data):
 
 
 def write_manifest(manifest, path):
-    f = open(path)
+    f = open(path, "w")
     f.write(json.dumps(manifest))
     f.close()
 

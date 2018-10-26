@@ -109,6 +109,7 @@ Resources:
             - eks:*
             - ec2:DescribeSecurityGroups
             - ec2:DescribeSubnets
+            - lambda:InvokeFunction
             Resource: "*"
           - Effect: Allow
             Action: s3:GetObject
@@ -256,5 +257,7 @@ Outputs:
     Value: !GetAtt ControlPlaneProvisionRole.Arn
   NodeInstanceProfile:
     Value: !Ref NodeInstanceProfile
+  NodeInstanceRole:
+    Value: !Ref NodeInstanceRole
   BastionRole:
     Value: !Ref BastionRole

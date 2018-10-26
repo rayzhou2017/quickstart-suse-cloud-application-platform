@@ -48,7 +48,7 @@ Conditions:
     - "True"
 Resources:
   CopyZips:
-    Type: AWS::CloudFormation::CustomResource
+    Type: Custom::CopyZips
     Properties:
       ServiceToken: !GetAtt 'CopyZipsFunction.Arn'
       DestBucket: !Ref LambdaZipsBucketName
@@ -58,6 +58,7 @@ Resources:
       - functions/packages/TillerInstall/lambda.zip
       - functions/packages/DeleteBucketContents/lambda.zip
       - functions/packages/CfnStackAssumeRole/lambda.zip
+      - functions/packages/KubeManifest/lambda.zip
   EKSLambdaSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
@@ -96,6 +97,21 @@ Resources:
       Code:
         S3Bucket: !Ref LambdaZipsBucketName
         S3Key: !Sub '${QSS3KeyPrefix}functions/packages/TillerInstall/lambda.zip'
+      VpcConfig:
+        SecurityGroupIds: [ !Ref EKSLambdaSecurityGroup ]
+        SubnetIds: !Ref EKSSubnetIds
+  KubeManifestLambda:
+    DependsOn: CopyZips
+    Type: AWS::Lambda::Function
+    Properties:
+      Handler: lambda_function.lambda_handler
+      MemorySize: 128
+      Role: !Ref EKSProvisionRoleArn
+      Runtime: python3.6
+      Timeout: 300
+      Code:
+        S3Bucket: !Ref LambdaZipsBucketName
+        S3Key: !Sub '${QSS3KeyPrefix}functions/packages/KubeManifest/lambda.zip'
       VpcConfig:
         SecurityGroupIds: [ !Ref EKSLambdaSecurityGroup ]
         SubnetIds: !Ref EKSSubnetIds
@@ -176,3 +192,5 @@ Outputs:
     Value: !GetAtt QuickStartStackMakerLambda.Arn
   DeleteBucketContentsLambdaArn:
     Value: !If [ CreateDeleteBucketContentsLambda, !GetAtt DeleteBucketContentsLambda.Arn, "" ]
+  KubeManifestLambdaArn:
+    Value: !GetAtt KubeManifestLambda.Arn

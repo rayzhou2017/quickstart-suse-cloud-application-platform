@@ -316,15 +316,19 @@ def create(event, context):
     if prefix_length + suffix_length > 128:
         prefix = prefix[:128-suffix_length]
     stack_name = prefix + suffix
+    parent_properties = cfn_client.describe_stacks(StackName=prefix)['Stacks'][0]
     response = cfn_client.create_stack(
         StackName=stack_name,
         TemplateURL=event['ResourceProperties']['TemplateURL'],
         Parameters=params,
-        Capabilities=cfn_capabilities,
+        Capabilities=parent_properties['Capabilities'],
+        DisableRollback=parent_properties['DisableRollback'],
+        NotificationARNs=parent_properties['NotificationARNs'],
+        RollbackConfiguration=parent_properties['RollbackConfiguration'],
         Tags=[{
             'Key': 'ParentStackId',
             'Value': event['ResourceProperties']['ParentStackId']
-        }]
+        }] + parent_properties['Tags']
     )
     physical_resource_id = response['StackId']
     event["Poll"] = True
@@ -367,6 +371,9 @@ def delete(event, context):
     Delete a cfn stack using an assumed role
     """
     stack_id = event["PhysicalResourceId"]
+    if '[$LATEST]' in stack_id:
+        # No stack was created, so exiting
+        return stack_id, {}
     cfn_client = get_client("cloudformation", event, context)
     cfn_client.delete_stack(StackName=stack_id)
     physical_resource_id = stack_id

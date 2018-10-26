@@ -11,7 +11,7 @@ Parameters:
     Type: String
 Resources:
   TillerInstall:
-    Type: "AWS::CloudFormation::CustomResource"
+    Type: "Custom::TillerInstall"
     Version: '1.0'
     Properties:
       ServiceToken: !Ref TillerInstallLambdaArn

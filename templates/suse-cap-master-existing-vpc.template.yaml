@@ -243,7 +243,7 @@ Resources:
     Condition: CreateLambdaZipsBucket
   DeleteBucketContents:
     Condition: CreateLambdaZipsBucket
-    Type: AWS::CloudFormation::CustomResource
+    Type: Custom::DeleteBucketContents
     Version: '1.0'
     Properties:
       ServiceToken: !GetAtt 'FunctionStack.Outputs.DeleteBucketContentsLambdaArn'
@@ -254,7 +254,7 @@ Resources:
       GroupDescription: Cluster communication
       VpcId: !Ref VPCID
   EKSControlPlane:
-    Type: "AWS::CloudFormation::CustomResource"
+    Type: "Custom::CfnStackAssumeRole"
     Version: '1.0'
     Properties:
       ServiceToken: !GetAtt FunctionStack.Outputs.QuickStartStackMakerLambdaArn
@@ -265,3 +265,5 @@ Resources:
         SecurityGroupIds: !Ref ControlPlaneSecurityGroup
         SubnetIds: !Join [",", [ !Ref PrivateSubnet1ID, !Ref PrivateSubnet2ID, !Ref PrivateSubnet3ID ]]
         RoleArn: !GetAtt IamStack.Outputs.ControlPlaneRoleArn
+        NodeInstanceRole: !GetAtt IamStack.Outputs.NodeInstanceRole
+        KubeManifestLambdaArn: !GetAtt FunctionStack.Outputs.KubeManifestLambdaArn
