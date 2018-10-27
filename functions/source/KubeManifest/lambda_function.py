@@ -93,7 +93,6 @@ def create_kubeconfig(endpoint, cluster_name, ca_data):
         pass
     f = open("/tmp/.kube/config", "w")
     kubeconf = KUBECONFIG.format(endpoint=endpoint, ca_data=ca_data, cluster_name=cluster_name)
-    print(kubeconf)
     f.write(kubeconf)
     f.close()
     os.environ["KUBECONFIG"] = "/tmp/.kube/config"

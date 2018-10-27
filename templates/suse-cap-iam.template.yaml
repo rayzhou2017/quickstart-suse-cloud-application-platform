@@ -244,6 +244,33 @@ Resources:
             - ec2:AssociateAddress
             - ec2:DescribeAddresses
             Resource: "*"
+  LambdaCleanUpFunctionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+        - Action: ['sts:AssumeRole']
+          Effect: Allow
+          Principal:
+            Service: [lambda.amazonaws.com]
+        Version: '2012-10-17'
+      Path: /
+      Policies:
+      - PolicyName: LambdaRole
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+          - Action:
+            - 'logs:CreateLogGroup'
+            - 'logs:CreateLogStream'
+            - 'logs:PutLogEvents'
+            Effect: Allow
+            Resource:
+            - !Sub "arn:aws:logs:*:*:*"
+          - Action:
+            - 'ec2:*'
+            Effect: Allow
+            Resource: "*"
 Outputs:
   DeleteBucketContentsRoleArn:
     Value: !If [ CreateDeleteBucketContentsRole, !GetAtt DeleteBucketContentsRole.Arn, "" ]
@@ -255,9 +282,11 @@ Outputs:
     Value: !GetAtt ControlPlaneRole.Arn
   ControlPlaneProvisionRoleArn:
     Value: !GetAtt ControlPlaneProvisionRole.Arn
+  LambdaCleanUpFunctionRoleArn:
+    Value: !GetAtt LambdaCleanUpFunctionRole.Arn
   NodeInstanceProfile:
     Value: !Ref NodeInstanceProfile
-  NodeInstanceRole:
-    Value: !Ref NodeInstanceRole
+  NodeInstanceRoleArn:
+    Value: !GetAtt NodeInstanceRole.Arn
   BastionRole:
     Value: !Ref BastionRole

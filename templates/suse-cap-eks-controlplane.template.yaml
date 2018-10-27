@@ -7,7 +7,7 @@ Parameters:
     Type: List<AWS::EC2::Subnet::Id>
   RoleArn:
     Type: String
-  NodeInstanceRole:
+  NodeInstanceRoleArn:
     Type: String
   KubeManifestLambdaArn:
     Type: String
@@ -19,7 +19,7 @@ Resources:
         SecurityGroupIds: !Ref SecurityGroupIds
         SubnetIds: !Ref SubnetIds
       RoleArn: !Ref RoleArn
-  EkeNodeConfigMap:
+  EksNodeConfigMap:
     Type: "Custom::KubeManifest"
     Version: '1.0'
     Properties:
@@ -35,7 +35,7 @@ Resources:
           namespace: kube-system
         data:
           mapRoles: !Sub |
-            - rolearn: ${NodeInstanceRole}
+            - rolearn: ${NodeInstanceRoleArn}
               username: system:node:{{EC2PrivateDNSName}}
               groups:
                 - system:bootstrappers

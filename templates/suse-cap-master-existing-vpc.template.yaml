@@ -169,6 +169,7 @@ Conditions:
   - ''
 Resources:
   BastionStack:
+    DependsOn: HelmStack
     Type: AWS::CloudFormation::Stack
     Properties:
       TemplateURL: !Sub 'https://${QSS3BucketName}.s3.amazonaws.com/${QSS3KeyPrefix}submodules/quickstart-linux-bastion/templates/linux-bastion.template'
@@ -213,6 +214,7 @@ Resources:
         EKSEndpoint: !GetAtt EKSControlPlane.EKSEndpoint
         EKSArn: !GetAtt EKSControlPlane.EksArn
         TillerInstallLambdaArn: !GetAtt FunctionStack.Outputs.TillerInstallLambdaArn
+        KubeManifestLambdaArn: !GetAtt FunctionStack.Outputs.KubeManifestLambdaArn
   IamStack:
     Type: "AWS::CloudFormation::Stack"
     Properties:
@@ -236,6 +238,7 @@ Resources:
         EKSSubnetIds: !Sub "${PrivateSubnet1ID},${PrivateSubnet2ID},${PrivateSubnet3ID}"
         DeleteBucketContentsRoleArn: !GetAtt IamStack.Outputs.DeleteBucketContentsRoleArn
         QuickStartStackMakerRoleArn: !GetAtt IamStack.Outputs.QuickStartStackMakerRoleArn
+        LambdaCleanUpFunctionRoleArn: !GetAtt IamStack.Outputs.LambdaCleanUpFunctionRoleArn
         DeleteLambdaZipsBucketContents: !If [ CreateLambdaZipsBucket, "True", "False" ]
         VPCID: !Ref VPCID
   LambdaZipsBucket:
@@ -265,5 +268,5 @@ Resources:
         SecurityGroupIds: !Ref ControlPlaneSecurityGroup
         SubnetIds: !Join [",", [ !Ref PrivateSubnet1ID, !Ref PrivateSubnet2ID, !Ref PrivateSubnet3ID ]]
         RoleArn: !GetAtt IamStack.Outputs.ControlPlaneRoleArn
-        NodeInstanceRole: !GetAtt IamStack.Outputs.NodeInstanceRole
+        NodeInstanceRoleArn: !GetAtt IamStack.Outputs.NodeInstanceRoleArn
         KubeManifestLambdaArn: !GetAtt FunctionStack.Outputs.KubeManifestLambdaArn

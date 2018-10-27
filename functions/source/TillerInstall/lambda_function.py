@@ -93,7 +93,6 @@ def create_kubeconfig(endpoint, cluster_name, ca_data):
         pass
     f = open("/tmp/.kube/config", "w")
     kubeconf = KUBECONFIG.format(endpoint=endpoint, ca_data=ca_data, cluster_name=cluster_name)
-    print(kubeconf)
     f.write(kubeconf)
     f.close()
     os.environ["KUBECONFIG"] = "/tmp/.kube/config"
@@ -111,13 +110,12 @@ def lambda_handler(event, context):
         cluster_arn = event['ResourceProperties']['EKSArn']
         ca_data = event['ResourceProperties']['EKSCAData']
         create_kubeconfig(endpoint, cluster_arn.split('/')[1], ca_data)
-        run_command("kubectl get nodes")
         if event['RequestType'] == 'Create':
-            run_command("kubectl get nodes")
+            run_command("helm --debug --home /tmp/.helm init --service-account %s --wait" % event['ResourceProperties']['TillerSA'])
         if event['RequestType'] == 'Update':
             pass
         if event['RequestType'] == 'Delete':
-            pass
+            run_command("kubectl delete deployment tiller-deploy -n kube-system ")
     except Exception as e:
         logging.error('Exception: %s' % e, exc_info=True)
         status = FAILED
