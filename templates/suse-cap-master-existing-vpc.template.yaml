@@ -189,6 +189,7 @@ Resources:
           K8S_CA_DATA=${EKSControlPlane.CAData},
           K8S_ENDPOINT=${EKSControlPlane.EKSEndpoint}
   NodeGroupStack:
+    DependsOn: EKSControlPlane
     Type: "AWS::CloudFormation::Stack"
     Properties:
       TemplateURL: !Sub 'https://${QSS3BucketName}.s3.amazonaws.com/${QSS3KeyPrefix}templates/suse-cap-eks-nodegroup.template.yaml'
@@ -206,13 +207,14 @@ Resources:
         ControlPlaneSecurityGroup: !Ref ControlPlaneSecurityGroup
         NodeInstanceProfile: !GetAtt IamStack.Outputs.NodeInstanceProfile
   HelmStack:
+    DependsOn: NodeGroupStack
     Type: "AWS::CloudFormation::Stack"
     Properties:
       TemplateURL: !Sub 'https://${QSS3BucketName}.s3.amazonaws.com/${QSS3KeyPrefix}templates/suse-cap-helm.template.yaml'
       Parameters:
-        EKSCAData: !GetAtt EKSControlPlane.CAData
-        EKSEndpoint: !GetAtt EKSControlPlane.EKSEndpoint
-        EKSArn: !GetAtt EKSControlPlane.EksArn
+        KubeConfigPath: !Sub "s3://${KubeConfigBucket}/.kube/config.enc"
+        KubeConfigKmsKeyArn: !GetAtt KmsKey.Arn
+        KubeConfigKmsContext: "SuseCAPQuickStart"
         TillerInstallLambdaArn: !GetAtt FunctionStack.Outputs.TillerInstallLambdaArn
         KubeManifestLambdaArn: !GetAtt FunctionStack.Outputs.KubeManifestLambdaArn
   IamStack:
@@ -224,6 +226,7 @@ Resources:
         DeleteLambdaZipsBucketContents: !If [ CreateLambdaZipsBucket, "True", "False" ]
         QSS3BucketName: !Ref QSS3BucketName
         QSS3KeyPrefix: !Ref QSS3KeyPrefix
+        KubeConfigBucket: !Ref KubeConfigBucket
   FunctionStack:
     Type: "AWS::CloudFormation::Stack"
     Properties:
@@ -241,6 +244,7 @@ Resources:
         LambdaCleanUpFunctionRoleArn: !GetAtt IamStack.Outputs.LambdaCleanUpFunctionRoleArn
         DeleteLambdaZipsBucketContents: !If [ CreateLambdaZipsBucket, "True", "False" ]
         VPCID: !Ref VPCID
+        KubeConfigUploadRoleArn: !GetAtt IamStack.Outputs.KubeConfigUploadRoleArn
   LambdaZipsBucket:
     Type: AWS::S3::Bucket
     Condition: CreateLambdaZipsBucket
@@ -270,3 +274,39 @@ Resources:
         RoleArn: !GetAtt IamStack.Outputs.ControlPlaneRoleArn
         NodeInstanceRoleArn: !GetAtt IamStack.Outputs.NodeInstanceRoleArn
         KubeManifestLambdaArn: !GetAtt FunctionStack.Outputs.KubeManifestLambdaArn
+        KmsKeyArn: !GetAtt KmsKey.Arn
+        KubeConfigUploadRoleArn: !GetAtt IamStack.Outputs.KubeConfigUploadRoleArn
+        KubeConfigUploadLambdaArn: !GetAtt FunctionStack.Outputs.KubeConfigUploadLambdaArn
+        KubeConfigS3Bucket: !Ref KubeConfigBucket
+  KmsKey:
+    Type: "AWS::KMS::Key"
+    Properties:
+      KeyPolicy: {
+        "Version": "2012-10-17",
+        "Id": "key-default-1",
+        "Statement": [
+          {
+            "Sid": "root access",
+            "Effect": "Allow",
+            "Principal": {"AWS": !Sub "arn:aws:iam::${AWS::AccountId}:root"},
+            "Action": "kms:*",
+            "Resource": "*"
+          },
+          {
+            "Sid": "lambda encrypt",
+            "Effect": "Allow",
+            "Principal": {"AWS": !GetAtt IamStack.Outputs.KubeConfigUploadRoleArn},
+            "Action": "kms:encrypt",
+            "Resource": "*"
+          },
+          {
+            "Sid": "lambda decrypt",
+            "Effect": "Allow",
+            "Principal": {"AWS": !GetAtt IamStack.Outputs.ControlPlaneProvisionRoleArn},
+            "Action": "kms:decrypt",
+            "Resource": "*"
+          }
+        ]
+      }
+  KubeConfigBucket:
+    Type: "AWS::S3::Bucket"

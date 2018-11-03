@@ -1,15 +1,15 @@
 AWSTemplateFormatVersion: "2010-09-09"
 Description: Deploy Helm into an EKS cluster
 Parameters:
-  EKSCAData:
+  KubeConfigPath:
     Type: String
-  EKSEndpoint:
-    Type: String
-  EKSArn:
+  KubeConfigKmsKeyArn:
     Type: String
   TillerInstallLambdaArn:
     Type: String
   KubeManifestLambdaArn:
+    Type: String
+  KubeConfigKmsContext:
     Type: String
 Resources:
   TillerInstall:
@@ -18,18 +18,16 @@ Resources:
     Version: '1.0'
     Properties:
       ServiceToken: !Ref TillerInstallLambdaArn
-      EKSCAData: !Ref EKSCAData
-      EKSEndpoint: !Ref EKSEndpoint
-      EKSArn: !Ref EKSArn
+      KubeConfigPath: !Ref KubeConfigPath
+      KubeConfigKmsContext: !Ref KubeConfigKmsContext
       TillerSA: tiller
   TillerSA:
     Type: "Custom::KubeManifest"
     Version: '1.0'
     Properties:
       ServiceToken: !Ref KubeManifestLambdaArn
-      EKSCAData: !Ref EKSCAData
-      EKSEndpoint: !Ref EKSEndpoint
-      EKSArn: !Ref EKSArn
+      KubeConfigPath: !Ref KubeConfigPath
+      KubeConfigKmsContext: !Ref KubeConfigKmsContext
       Manifest:
         apiVersion: v1
         kind: ServiceAccount
@@ -42,9 +40,8 @@ Resources:
     Version: '1.0'
     Properties:
       ServiceToken: !Ref KubeManifestLambdaArn
-      EKSCAData: !Ref EKSCAData
-      EKSEndpoint: !Ref EKSEndpoint
-      EKSArn: !Ref EKSArn
+      KubeConfigPath: !Ref KubeConfigPath
+      KubeConfigKmsContext: !Ref KubeConfigKmsContext
       Manifest:
         apiVersion: rbac.authorization.k8s.io/v1beta1
         kind: ClusterRoleBinding

@@ -44,6 +44,8 @@ Parameters:
     Type: String
   ControlPlaneSecurityGroup:
     Type: String
+  KubeConfigUploadRoleArn:
+    Type: String
 Conditions:
   CreateDeleteBucketContentsLambda: !Equals
     - !Ref 'DeleteLambdaZipsBucketContents'
@@ -58,10 +60,12 @@ Resources:
       Prefix: !Ref 'QSS3KeyPrefix'
       Objects:
       - functions/packages/TillerInstall/lambda.zip
+      - functions/packages/Helm/lambda.zip
       - functions/packages/DeleteBucketContents/lambda.zip
       - functions/packages/CfnStackAssumeRole/lambda.zip
       - functions/packages/KubeManifest/lambda.zip
       - functions/packages/LambdaEniCleanup/lambda.zip
+      - functions/packages/KubeConfigUpload/lambda.zip
   VPCLambdaCleanup:
     Type: Custom::LambdaCleanup
     Properties:
@@ -123,6 +127,21 @@ Resources:
       VpcConfig:
         SecurityGroupIds: [ !Ref EKSLambdaSecurityGroup ]
         SubnetIds: !Ref EKSSubnetIds
+  HelmLambda:
+    DependsOn: CopyZips
+    Type: AWS::Lambda::Function
+    Properties:
+      Handler: lambda_function.lambda_handler
+      MemorySize: 128
+      Role: !Ref EKSProvisionRoleArn
+      Runtime: python3.6
+      Timeout: 300
+      Code:
+        S3Bucket: !Ref LambdaZipsBucketName
+        S3Key: !Sub '${QSS3KeyPrefix}functions/packages/Helm/lambda.zip'
+      VpcConfig:
+        SecurityGroupIds: [ !Ref EKSLambdaSecurityGroup ]
+        SubnetIds: !Ref EKSSubnetIds
   KubeManifestLambda:
     DependsOn: CopyZips
     Type: AWS::Lambda::Function
@@ -151,6 +170,18 @@ Resources:
       Code:
         S3Bucket: !Ref LambdaZipsBucketName
         S3Key: !Sub '${QSS3KeyPrefix}functions/packages/DeleteBucketContents/lambda.zip'
+  KubeConfigUploadLambda:
+    DependsOn: CopyZips
+    Type: AWS::Lambda::Function
+    Properties:
+      Handler: lambda_function.lambda_handler
+      MemorySize: 128
+      Role: !Ref KubeConfigUploadRoleArn
+      Runtime: python2.7
+      Timeout: 300
+      Code:
+        S3Bucket: !Ref LambdaZipsBucketName
+        S3Key: !Sub '${QSS3KeyPrefix}functions/packages/KubeConfigUpload/lambda.zip'
   CopyZipsFunction:
     Type: AWS::Lambda::Function
     Properties:
@@ -211,9 +242,13 @@ Resources:
 Outputs:
   TillerInstallLambdaArn:
     Value: !GetAtt TillerInstallLambda.Arn
+  HelmLambdaArn:
+    Value: !GetAtt HelmLambda.Arn
   QuickStartStackMakerLambdaArn:
     Value: !GetAtt QuickStartStackMakerLambda.Arn
   DeleteBucketContentsLambdaArn:
     Value: !If [ CreateDeleteBucketContentsLambda, !GetAtt DeleteBucketContentsLambda.Arn, "" ]
   KubeManifestLambdaArn:
     Value: !GetAtt KubeManifestLambda.Arn
+  KubeConfigUploadLambdaArn:
+    Value: !GetAtt KubeConfigUploadLambda.Arn

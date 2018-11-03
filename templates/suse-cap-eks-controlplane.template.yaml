@@ -11,6 +11,20 @@ Parameters:
     Type: String
   KubeManifestLambdaArn:
     Type: String
+  KubeConfigUploadLambdaArn:
+    Type: String
+  KubeConfigUploadRoleArn:
+    Type: String
+  KubeConfigS3Bucket:
+    Type: String
+  KubeConfigS3Key:
+    Type: String
+    Default: ".kube/config.enc"
+  KmsKeyArn:
+    Type: String
+  KmsContext:
+    Type: String
+    Default: "SuseCAPQuickStart"
 Resources:
   EKS:
     Type: "AWS::EKS::Cluster"
@@ -20,13 +34,13 @@ Resources:
         SubnetIds: !Ref SubnetIds
       RoleArn: !Ref RoleArn
   EksNodeConfigMap:
+    DependsOn: KubeConfigToS3
     Type: "Custom::KubeManifest"
     Version: '1.0'
     Properties:
       ServiceToken: !Ref KubeManifestLambdaArn
-      EKSCAData: !GetAtt EKS.CertificateAuthorityData
-      EKSEndpoint: !GetAtt EKS.Endpoint
-      EKSArn: !GetAtt EKS.Arn
+      KubeConfigPath: !Sub "s3://${KubeConfigS3Bucket}/${KubeConfigS3Key}"
+      KubeConfigKmsContext: !Ref KmsContext
       Manifest:
         apiVersion: v1
         kind: ConfigMap
@@ -40,6 +54,19 @@ Resources:
               groups:
                 - system:bootstrappers
                 - system:nodes
+  KubeConfigToS3:
+    Type: "Custom::ConfigToS3"
+    Version: '1.0'
+    Properties:
+      ServiceToken: !Ref KubeConfigUploadLambdaArn
+      RoleArn: !Ref KubeConfigUploadRoleArn
+      EKSCAData: !GetAtt EKS.CertificateAuthorityData
+      EKSEndpoint: !GetAtt EKS.Endpoint
+      EKSArn: !GetAtt EKS.Arn
+      S3BucketName: !Ref KubeConfigS3Bucket
+      S3Key: !Ref KubeConfigS3Key
+      EncryptionContext: !Ref KmsContext
+      KmsKeyArn: !Ref KmsKeyArn
 Outputs:
   EksArn:
     Value: !GetAtt EKS.Arn

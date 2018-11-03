@@ -27,6 +27,11 @@ Parameters:
     Type: String
     AllowedValues: [ "True", "False" ]
     Default: "False"
+  KubeConfigBucket:
+    Type: String
+  KubeConfigKey:
+    Type: String
+    Default: ".kube/config.enc"
 Conditions:
   CreateDeleteBucketContentsRole: !Equals
   - !Ref 'DeleteLambdaZipsBucketContents'
@@ -124,6 +129,12 @@ Resources:
             - ec2:DeleteNetworkInterface
             Resource:
             - "*"
+          - Action: "kms:decrypt"
+            Effect: Allow
+            Resource: "*"
+          - Action: "s3:GetObject"
+            Effect: Allow
+            Resource: !Sub "arn:aws:s3:::${KubeConfigBucket}/${KubeConfigKey}"
   ControlPlaneRole:
     Type: "AWS::IAM::Role"
     Properties:
@@ -271,6 +282,38 @@ Resources:
             - 'ec2:*'
             Effect: Allow
             Resource: "*"
+  KubeConfigUploadRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+        - Action: ['sts:AssumeRole']
+          Effect: Allow
+          Principal:
+            Service: [lambda.amazonaws.com]
+        Version: '2012-10-17'
+      Path: /
+      Policies:
+      - PolicyName: LambdaRole
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+          - Action:
+            - 'logs:CreateLogGroup'
+            - 'logs:CreateLogStream'
+            - 'logs:PutLogEvents'
+            Effect: Allow
+            Resource:
+            - !Sub "arn:aws:logs:*:*:*"
+          - Action:
+            - 's3:PutObject'
+            - 's3:PutObjectAcl'
+            - 's3:DeleteObject'
+            Effect: Allow
+            Resource: !Sub "arn:aws:s3:::${KubeConfigBucket}/${KubeConfigKey}"
+          - Action: "kms:encrypt"
+            Effect: Allow
+            Resource: "*"
 Outputs:
   DeleteBucketContentsRoleArn:
     Value: !If [ CreateDeleteBucketContentsRole, !GetAtt DeleteBucketContentsRole.Arn, "" ]
@@ -290,3 +333,5 @@ Outputs:
     Value: !GetAtt NodeInstanceRole.Arn
   BastionRole:
     Value: !Ref BastionRole
+  KubeConfigUploadRoleArn:
+    Value: !GetAtt KubeConfigUploadRole.Arn

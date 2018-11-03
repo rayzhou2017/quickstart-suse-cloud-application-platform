@@ -2,6 +2,7 @@ import json
 import logging
 import threading
 from botocore.vendored import requests
+import boto3
 import subprocess
 import shlex
 import os
@@ -9,31 +10,10 @@ import os
 
 SUCCESS = "SUCCESS"
 FAILED = "FAILED"
-KUBECONFIG = """apiVersion: v1
-clusters:
-- cluster:
-    server: {endpoint}
-    certificate-authority-data: {ca_data}
-  name: kubernetes
-contexts:
-- context:
-    cluster: kubernetes
-    user: aws
-  name: aws
-current-context: aws
-kind: Config
-preferences: {{}}
-users:
-- name: aws
-  user:
-    exec:
-      apiVersion: client.authentication.k8s.io/v1alpha1
-      command: aws-iam-authenticator
-      args:
-        - "token"
-        - "-i"
-        - "{cluster_name}"
-"""
+
+
+s3_client = boto3.client('s3')
+kms_client = boto3.client('kms')
 
 
 def send(event, context, response_status, response_data, physical_resource_id, reason=None):
@@ -86,13 +66,17 @@ def run_command(command):
     return output
 
 
-def create_kubeconfig(endpoint, cluster_name, ca_data):
+def create_kubeconfig(bucket, key, kms_context):
     try:
         os.mkdir("/tmp/.kube/")
     except FileExistsError:
         pass
+    enc_config = s3_client.get_object(Bucket=bucket, Key=key)['Body'].read()
+    kubeconf = kms_client.decrypt(
+        CiphertextBlob=enc_config,
+        EncryptionContext=kms_context
+    )['Plaintext'].decode('utf8')
     f = open("/tmp/.kube/config", "w")
-    kubeconf = KUBECONFIG.format(endpoint=endpoint, ca_data=ca_data, cluster_name=cluster_name)
     f.write(kubeconf)
     f.close()
     os.environ["KUBECONFIG"] = "/tmp/.kube/config"
@@ -106,10 +90,12 @@ def lambda_handler(event, context):
     status = SUCCESS
     try:
         os.environ["PATH"] = "/var/task/bin:" + os.environ.get("PATH")
-        endpoint = event['ResourceProperties']['EKSEndpoint']
-        cluster_arn = event['ResourceProperties']['EKSArn']
-        ca_data = event['ResourceProperties']['EKSCAData']
-        create_kubeconfig(endpoint, cluster_arn.split('/')[1], ca_data)
+        if not event['ResourceProperties']['KubeConfigPath'].startswith("s3://"):
+            raise Exception("KubeConfigPath must be a valid s3 URI (eg.: s3://my-bucket/my-key.txt")
+        bucket = event['ResourceProperties']['KubeConfigPath'].split('/')[2]
+        key = "/".join(event['ResourceProperties']['KubeConfigPath'].split('/')[3:])
+        kms_context = {"QSContext": event['ResourceProperties']['KubeConfigKmsContext']}
+        create_kubeconfig(bucket, key, kms_context)
         if event['RequestType'] == 'Create':
             run_command("helm --debug --home /tmp/.helm init --service-account %s --wait" % event['ResourceProperties']['TillerSA'])
         if event['RequestType'] == 'Update':
