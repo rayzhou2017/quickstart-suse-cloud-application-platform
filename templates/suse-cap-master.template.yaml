@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: "2010-09-09"
-Description: Deploys Suse Cloud Application Platform into a new EKS cluster in a new VPC
+Description: Deploys an EKS cluster in a new VPC
 Metadata:
   AWS::CloudFormation::Interface:
     ParameterGroups:
@@ -265,3 +265,8 @@ Resources:
         RemoteAccessCIDR: !Ref RemoteAccessCIDR
         AdditionalEKSAdminArns: !Join [ ",", !Ref AdditionalEKSAdminArns ]
         VPCID: !GetAtt VPCStack.Outputs.VPCID
+Outputs:
+  KubeConfigPath:
+    Value: !GetAtt WorkloadStack.Outputs.KubeConfigPath
+  BastionIP:
+    Value: !GetAtt WorkloadStack.Outputs.BastionIP
