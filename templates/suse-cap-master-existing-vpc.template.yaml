@@ -190,7 +190,7 @@ Resources:
     Properties:
       TemplateURL: !Sub 'https://${QSS3BucketName}.s3.amazonaws.com/${QSS3KeyPrefix}templates/suse-cap.template.yaml'
       Parameters:
-        KubeConfigKmsContext: !GetAtt EKSStack.Outputs.KubeConfigKmsContext
+        KubeConfigKmsContext: EKSQuickStart
         HelmLambdaArn: !GetAtt EKSStack.Outputs.HelmLambdaArn
         KubeManifestLambdaArn: !GetAtt EKSStack.Outputs.KubeManifestLambdaArn
         KubeConfigPath: !GetAtt EKSStack.Outputs.KubeConfigPath
