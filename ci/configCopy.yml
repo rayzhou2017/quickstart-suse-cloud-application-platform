@@ -1,0 +1,17 @@
+global:
+  marketplace-ami: false
+  owner: quickstart-eng@amazon.com
+  qsname: quickstart-suse-cloud-application-platform
+  regions:
+    - eu-west-1
+    - us-east-1
+    - us-west-2
+  reporting: true
+  s3bucket: kayrescaps3
+
+tests:
+  quickstart-suse-cap-defaults:
+    parameter_input: suse-cap-defaults.json
+    template_file: suse-cap-master.template.yaml
+    regions:
+      - us-west-2
