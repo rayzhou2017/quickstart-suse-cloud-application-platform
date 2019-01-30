@@ -1,80 +1,538 @@
 AWSTemplateFormatVersion: "2010-09-09"
-Description: "deploy an example workload into an existing kubernetes cluster"
+Description: Deploys Suse Cloud Application Platform into an existing Kubernetes Cluster (qs-1p817shrd)
 Parameters:
-  KubeManifestLambdaArn:
-    Type: String
   HelmLambdaArn:
+    Type: String
+  KubeManifestLambdaArn:
     Type: String
   KubeConfigPath:
     Type: String
   KubeConfigKmsContext:
     Type: String
     Default: "EKSQuickStart"
+  NodeGroupIAMRole:
+    Type: String
+  NodeInstanceProfile:
+    Type: String
+  HostedZoneID:
+    Description: 'Route 53 Hosted Zone ID to use'
+    Type: String
+    MaxLength: '32'
+  DomainName:
+    Description: 'domain name configured for the cluster'
+    Type: String
+  PrivateSubnet1ID:
+    Type: String
+  PrivateSubnet2ID:
+    Type: String
+  PrivateSubnet3ID:
+    Type: String
+  PublicSubnet1ID:
+    Type: String
+  PublicSubnet2ID:
+    Type: String
+  PublicSubnet3ID:
+    Type: String
+  NodeSecurityGroup:
+    Type: AWS::EC2::SecurityGroup::Id
+  QSS3BucketName:
+    Type: String
+  QSS3KeyPrefix:
+    Type: String
+    Default: quickstart-suse-cloud-application-platform/
+  KeyPairName:
+    Description: The name of an existing public/private key pair, which allows you
+      to securely connect to your instance after it launches
+    Type: AWS::EC2::KeyPair::KeyName
+  VPCID:
+    Type: "AWS::EC2::VPC::Id"
+  NodeInstanceType:
+    Default: m5.large
+    AllowedValues:
+      - t2.large
+      - t2.xlarge
+      - t2.2xlarge
+      - t3.large
+      - t3.xlarge
+      - t3.2xlarge
+      - m3.xlarge
+      - m3.2xlarge
+      - m4.large
+      - m4.xlarge
+      - m4.2xlarge
+      - m4.4xlarge
+      - m4.10xlarge
+      - m5.large
+      - m5.xlarge
+      - m5.2xlarge
+      - m5.4xlarge
+      - m5.12xlarge
+      - m5.24xlarge
+      - c4.2xlarge
+      - c4.4xlarge
+      - c4.8xlarge
+      - c5.xlarge
+      - c5.2xlarge
+      - c5.4xlarge
+      - c5.9xlarge
+      - c5.18xlarge
+      - i3.large
+      - i3.xlarge
+      - i3.2xlarge
+      - i3.4xlarge
+      - i3.8xlarge
+      - i3.16xlarge
+      - r3.xlarge
+      - r3.2xlarge
+      - r3.4xlarge
+      - r3.8xlarge
+      - r4.large
+      - r4.xlarge
+      - r4.2xlarge
+      - r4.4xlarge
+      - r4.8xlarge
+      - r4.16xlarge
+      - x1.16xlarge
+      - x1.32xlarge
+      - p2.xlarge
+      - p2.8xlarge
+      - p2.16xlarge
+      - p3.2xlarge
+      - p3.8xlarge
+      - p3.16xlarge
+      - r5.large
+      - r5.xlarge
+      - r5.2xlarge
+      - r5.4xlarge
+      - r5.12xlarge
+      - r5.24xlarge
+      - r5d.large
+      - r5d.xlarge
+      - r5d.2xlarge
+      - r5d.4xlarge
+      - r5d.12xlarge
+      - r5d.24xlarge
+      - z1d.large
+      - z1d.xlarge
+      - z1d.2xlarge
+      - z1d.3xlarge
+      - z1d.6xlarge
+      - z1d.12xlarge
+    ConstraintDescription: Must be a valid EC2 instance type
+    Description: Type of EC2 instance for the Node instances
+    Type: String
+  NumberOfNodes:
+    Default: 3
+    Description: Number of EKS node instances
+    Type: Number
+  NodeGroupName:
+    Default: CAP-Infra
+    Description: Name for EKS node group
+    Type: String
+  NodeVolumeSize:
+    Default: 20
+    Description: Size for node volumes
+    Type: String
+  ControlPlaneSecurityGroup:
+    Type: String
+  EKSClusterName:
+    Type: String
+  KubernetesVersion:
+    Type: String
+    AllowedValues: [ "1.11", "1.10" ]
+    Default: "1.11"
 Resources:
-  # This resource creates a ConfigMap in the target cluster. It retrieves and decrypts a kms encrypted
-  # kubernetes config file, which is automatically created when customers deploy an EKS cluster with the quickstart,
-  # for bring-your-own-cluster the customer must encrypt and upload a config file prior to launching the stack.
-  #
-  # The "Manifest" property is an exact representation of a regular kubernetes resource manifest, on stack create
-  # `kubectl create --save-config` is called, on stack update `kubectl apply` and on stack delete `kubectl delete`
-  #
-  # The following elements are available to be used in other cloudformation resources using !GetAtt:
-  # name, namespace, resourceVersion, selfLink, uid
-  KubeManifestExample:
+  Route53WildCard:
+    Type: AWS::Route53::RecordSet
+    Properties:
+      Type: A
+      Name: !Sub '*.${DomainName}'
+      AliasTarget:
+        HostedZoneId: !GetAtt 'ExternalNlb.CanonicalHostedZoneID'
+        DNSName: !GetAtt 'ExternalNlb.DNSName'
+      HostedZoneId: !Ref 'HostedZoneID'
+  Route53ApexRecord:
+    Type: AWS::Route53::RecordSet
+    Properties:
+      Type: A
+      Name: !Ref 'DomainName'
+      AliasTarget:
+        HostedZoneId: !GetAtt 'ExternalNlb.CanonicalHostedZoneID'
+        DNSName: !GetAtt 'ExternalNlb.DNSName'
+      HostedZoneId: !Ref 'HostedZoneID'
+  ExternalNlb:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Scheme: internet-facing
+      Subnets: [ !Ref PublicSubnet1ID, !Ref PublicSubnet2ID, !Ref PublicSubnet3ID ]
+      Type: network
+  ExternalNlbTargetGroupUaa:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      Port: 2793
+      Protocol: TCP
+      VpcId: !Ref VPCID
+  ExternalNlbListenerUaa:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn: !Ref ExternalNlbTargetGroupUaa
+      LoadBalancerArn: !Ref ExternalNlb
+      Port: 2793
+      Protocol: TCP
+  ExternalNlbTargetGroupWss:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      Port: 4433
+      Protocol: TCP
+      VpcId: !Ref VPCID
+  ExternalNlbListenerWss:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn: !Ref ExternalNlbTargetGroupUaa
+      LoadBalancerArn: !Ref ExternalNlb
+      Port: 4433
+      Protocol: TCP
+  ExternalNlbTargetGroupHttp:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      Port: 80
+      Protocol: TCP
+      VpcId: !Ref VPCID
+  ExternalNlbListenerHttp:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn: !Ref ExternalNlbTargetGroupUaa
+      LoadBalancerArn: !Ref ExternalNlb
+      Port: 80
+      Protocol: TCP
+  ExternalNlbTargetGroupHttps:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      Port: 443
+      Protocol: TCP
+      VpcId: !Ref VPCID
+  ExternalNlbListenerHttps:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn: !Ref ExternalNlbTargetGroupUaa
+      LoadBalancerArn: !Ref ExternalNlb
+      Port: 443
+      Protocol: TCP
+  ExternalNlbTargetGroupSsh:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      Port: 2222
+      Protocol: TCP
+      VpcId: !Ref VPCID
+  ExternalNlbListenerSsh:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn: !Ref ExternalNlbTargetGroupUaa
+      LoadBalancerArn: !Ref ExternalNlb
+      Port: 2222
+      Protocol: TCP
+  CopyZipsRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: lambda-copier
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: s3:GetObject
+                Resource: !Sub 'arn:aws:s3:::${QSS3BucketName}/${QSS3KeyPrefix}*'
+              - Effect: Allow
+                Action:
+                  - s3:PutObject
+                  - s3:DeleteObject
+                Resource: !Sub 'arn:aws:s3:::${LambdaZipsBucket}/${QSS3KeyPrefix}*'
+  GetNlbIpsRole:
+    Type: "AWS::IAM::Role"
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: eksStackPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                  - elasticloadbalancing:DescribeLoadBalancers
+                Resource:
+                  - "*"
+  LambdaZipsBucket:
+    Type: AWS::S3::Bucket
+  CopyZips:
+    Type: Custom::CopyZips
+    Properties:
+      ServiceToken: !GetAtt 'CopyZipsFunction.Arn'
+      DestBucket: !Ref LambdaZipsBucket
+      SourceBucket: !Ref 'QSS3BucketName'
+      Prefix: !Ref 'QSS3KeyPrefix'
+      Objects:
+        - functions/packages/GetNlbIps/lambda.zip
+  GetNlbIpsLambda:
+    DependsOn: CopyZips
+    Type: AWS::Lambda::Function
+    Properties:
+      Handler: lambda_function.lambda_handler
+      MemorySize: 128
+      Role: !GetAtt GetNlbIpsRole.Arn
+      Runtime: python3.6
+      Timeout: 900
+      Code:
+        S3Bucket: !Ref LambdaZipsBucket
+        S3Key: !Sub '${QSS3KeyPrefix}functions/packages/GetNlbIps/lambda.zip'
+  CopyZipsFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      Description: Copies objects from a source S3 bucket to a destination
+      Handler: index.handler
+      Runtime: python2.7
+      Role: !GetAtt CopyZipsRole.Arn
+      Timeout: 900
+      Code:
+        ZipFile: |
+          import json
+          import logging
+          import threading
+          import boto3
+          import cfnresponse
+          def copy_objects(source_bucket, dest_bucket, prefix, objects):
+              s3 = boto3.client('s3')
+              for o in objects:
+                  key = prefix + o
+                  copy_source = {
+                      'Bucket': source_bucket,
+                      'Key': key
+                  }
+                  print('copy_source: %s' % copy_source)
+                  print('dest_bucket = %s'%dest_bucket)
+                  print('key = %s' %key)
+                  s3.copy_object(CopySource=copy_source, Bucket=dest_bucket,
+              Key=key)
+          def delete_objects(bucket, prefix, objects):
+              s3 = boto3.client('s3')
+              objects = {'Objects': [{'Key': prefix + o} for o in objects]}
+              s3.delete_objects(Bucket=bucket, Delete=objects)
+          def timeout(event, context):
+              logging.error('Execution is about to time out, sending failure response to CloudFormation')
+              cfnresponse.send(event, context, cfnresponse.FAILED, {}, physical_resource_id)
+          def handler(event, context):
+              physical_resource_id = None
+              if "PhysicalResourceId" in event.keys():
+                physical_resource_id = event["PhysicalResourceId"]
+              # make sure we send a failure to CloudFormation if the function is going to timeout
+              timer = threading.Timer((context.get_remaining_time_in_millis()
+              / 1000.00) - 0.5, timeout, args=[event, context])
+              timer.start()
+              print('Received event: %s' % json.dumps(event))
+              status = cfnresponse.SUCCESS
+              try:
+                  source_bucket = event['ResourceProperties']['SourceBucket']
+                  dest_bucket = event['ResourceProperties']['DestBucket']
+                  prefix = event['ResourceProperties']['Prefix']
+                  objects = event['ResourceProperties']['Objects']
+                  if event['RequestType'] == 'Delete':
+                      delete_objects(dest_bucket, prefix, objects)
+                  else:
+                      copy_objects(source_bucket, dest_bucket, prefix, objects)
+              except Exception as e:
+                  logging.error('Exception: %s' % e, exc_info=True)
+                  status = cfnresponse.FAILED
+              finally:
+                  timer.cancel()
+                  cfnresponse.send(event, context, status, {}, physical_resource_id)
+  UaaNamespace:
     Type: "Custom::KubeManifest"
     Version: '1.0'
+    DependsOn: NodeGroupStack
     Properties:
-      # The lambda function that executes the manifest against the cluster. This is created in one of the parent stacks
       ServiceToken: !Ref KubeManifestLambdaArn
-      # S3 path to the encrypted config file eg. s3://my-bucket/kube/config.encrypted
       KubeConfigPath: !Ref KubeConfigPath
-      # context for KMS to use when decrypting the file
       KubeConfigKmsContext: !Ref KubeConfigKmsContext
-      # Kubernetes manifest
       Manifest:
+        kind: Namespace
         apiVersion: v1
-        kind: ConfigMap
-        metadata:
-          # If name is not specified it will be automatically generated,
-          # and can be retrieved with !GetAtt LogicalID.name
-          #
-          # name: test
-          #
-          # if namespace is not specified, "default" namespace will be used
-          namespace: kube-system
-        data:
-          # examples of consuming outputs of the HelmExample resource below's output. Creates an implicit dependency, so
-          # this resource will only launch once the HelmExample resource has completed successfully
-          ServiceCatalogReleaseName: !Ref HelmExample
-          ServiceCatalogKubernetesServiceName: !GetAtt HelmExample.Service0
-  # This resource deploys the kubernetes service catalog from it's helm chart.
-  #
-  # using !GetAtt you can fetch Name (release name) and Namespace, as well as all of the created resources, who's keys
-  # are the resource type + an index for the case where a chart creates more than 1 of a Kind (eg. ConfigMap0 fetches
-  # the 1st ConfigMap created)
-  HelmExample:
+        name: cap-uaa
+  AdminPassword:
+    Type: 'AWS::SecretsManager::Secret'
+    Properties:
+      GenerateSecretString:
+        SecretStringTemplate: '{}'
+        GenerateStringKey: "password"
+        PasswordLength: 30
+        ExcludeCharacters: '"/\'
+  UaaPassword:
+    Type: 'AWS::SecretsManager::Secret'
+    Properties:
+      GenerateSecretString:
+        SecretStringTemplate: '{}'
+        GenerateStringKey: "password"
+        PasswordLength: 30
+        ExcludeCharacters: '"/\'
+  Uaa:
     Type: "Custom::Helm"
+    DependsOn: NodeGroupStack
     Version: '1.0'
     Properties:
       ServiceToken: !Ref HelmLambdaArn
       KubeConfigPath: !Ref KubeConfigPath
       KubeConfigKmsContext: !Ref KubeConfigKmsContext
-      # If the chart is not in the stable repo then supply a repo url
-      RepoUrl: https://svc-catalog-charts.storage.googleapis.com
-      # namespace is optional, in most cases it's best to leave this out so that a namespace is dynamically generated.
-      # If namespace does not exist it will be created
-      #
-      # Namespace: example-ns
-      #
-      # supply chart name in "repo-name/chart-name" or "https://repo-hostname/repo-path/chart-package.tgz"
-      Chart: svc-cat/catalog
-      # Custom values can optionally be specified
+      RepoUrl: https://kubernetes-charts.suse.com/
+      Chart: suse/uaa
+      Namespace: !GetAtt UaaNamespace.name
       Values:
-        apiserver.healthcheck.enabled: true
-        imagePullPolicy: Always
-Outputs:
-  # Examples for using the outputs of the KubeManifestExample resource
-  ExampleUid:
-    Value: !GetAtt KubeManifestExample.uid
-  ExampleSelfLink:
-    Value: !Ref KubeManifestExample
+        env.DOMAIN: !Ref DomainName
+        env.UAA_HOST: !Sub 'uaa.${DomainName}'
+        env.UAA_PORT: 2793
+        env.GARDEN_ROOTFS_DRIVER: overlay-xfs
+        env.GARDEN_APPARMOR_PROFILE: ""
+        kube.external_ips: [!GetAtt NlbIps.Ip1, !GetAtt NlbIps.Ip2, !GetAtt NlbIps.Ip3]
+        kube.storage_class.persistent: "gp2"
+        kube.storage_class.shared: "gp2"
+        kube.registry.hostname: "registry.suse.com"
+        kube.registry.username: ""
+        kube.registry.password: ""
+        kube.organization: "cap"
+        kube.psp.privileged: "suse.cap.psp"
+        secrets.CLUSTER_ADMIN_PASSWORD: !Join ['', ['{{resolve:secretsmanager:', !Ref AdminPassword, ':SecretString:password}}' ]]
+        secrets.UAA_ADMIN_CLIENT_SECRET: !Join ['', ['{{resolve:secretsmanager:', !Ref UaaPassword, ':SecretString:password}}' ]]
+        sizing.adapter.count: 3
+        sizing.api_group.count: 3
+        sizing.cc_clock.count: 3
+        sizing.cc_uploader.count: 3
+        sizing.cc_worker.count: 3
+        sizing.cf_usb.count: 3
+        sizing.diego_api.count: 3
+        sizing.diego_brain.count: 3
+        sizing.diego_cell.count: 6
+        sizing.diego_ssh.count: 3
+        sizing.doppler.count: 3
+        sizing.log-api.count: 3
+        sizing.mysql.count: 3
+        sizing.nats.count: 3
+        sizing.nfs_broker.count: 3
+        sizing.router.count: 3
+        sizing.routing_api.count: 3
+        sizing.syslog_scheduler.count: 3
+        sizing.tcp_router.count: 3
+        sizing.cc_uploader.capabilities: ["SYS_RESOURCE"]
+        sizing.diego_api.capabilities: ["SYS_RESOURCE"]
+        sizing.diego_brain.capabilities: ["SYS_RESOURCE"]
+        sizing.diego_ssh.capabilities: ["SYS_RESOURCE"]
+        sizing.nats.capabilities: ["SYS_RESOURCE"]
+        sizing.router.capabilities: ["SYS_RESOURCE"]
+        sizing.routing_api.capabilities: ["SYS_RESOURCE"]
+        # Diego cells go onto the default node group
+        sizing.diego_cell.affinity: "{ requiredDuringSchedulingIgnoredDuringExecution: { nodeSelectorTerms: [ matchExpressions: [ {key: cap-infra, operator: DoesNotExist} ] ] } }"
+        # All cap resources go onto the cap-infra nodes
+        sizing.adapter.affinity: "{ requiredDuringSchedulingIgnoredDuringExecution: { nodeSelectorTerms: [ matchExpressions: [ {key: nodegroup, operator: In, values: [ CapInfra ] } ] ] } }"
+        sizing.api_group.affinity: "{ requiredDuringSchedulingIgnoredDuringExecution: { nodeSelectorTerms: [ matchExpressions: [ {key: nodegroup, operator: In, values: [ CapInfra ] } ] ] } }"
+        sizing.cc_clock.affinity: "{ requiredDuringSchedulingIgnoredDuringExecution: { nodeSelectorTerms: [ matchExpressions: [ {key: nodegroup, operator: In, values: [ CapInfra ] } ] ] } }"
+        sizing.cc_uploader.affinity: "{ requiredDuringSchedulingIgnoredDuringExecution: { nodeSelectorTerms: [ matchExpressions: [ {key: nodegroup, operator: In, values: [ CapInfra ] } ] ] } }"
+        sizing.cc_worker.affinity: "{ requiredDuringSchedulingIgnoredDuringExecution: { nodeSelectorTerms: [ matchExpressions: [ {key: nodegroup, operator: In, values: [ CapInfra ] } ] ] } }"
+        sizing.cf_usb.affinity: "{ requiredDuringSchedulingIgnoredDuringExecution: { nodeSelectorTerms: [ matchExpressions: [ {key: nodegroup, operator: In, values: [ CapInfra ] } ] ] } }"
+        sizing.diego_api.affinity: "{ requiredDuringSchedulingIgnoredDuringExecution: { nodeSelectorTerms: [ matchExpressions: [ {key: nodegroup, operator: In, values: [ CapInfra ] } ] ] } }"
+        sizing.diego_brain.affinity: "{ requiredDuringSchedulingIgnoredDuringExecution: { nodeSelectorTerms: [ matchExpressions: [ {key: nodegroup, operator: In, values: [ CapInfra ] } ] ] } }"
+        sizing.diego_ssh.affinity: "{ requiredDuringSchedulingIgnoredDuringExecution: { nodeSelectorTerms: [ matchExpressions: [ {key: nodegroup, operator: In, values: [ CapInfra ] } ] ] } }"
+        sizing.doppler.affinity: "{ requiredDuringSchedulingIgnoredDuringExecution: { nodeSelectorTerms: [ matchExpressions: [ {key: nodegroup, operator: In, values: [ CapInfra ] } ] ] } }"
+        sizing.log-api.affinity: "{ requiredDuringSchedulingIgnoredDuringExecution: { nodeSelectorTerms: [ matchExpressions: [ {key: nodegroup, operator: In, values: [ CapInfra ] } ] ] } }"
+        sizing.mysql.affinity: "{ requiredDuringSchedulingIgnoredDuringExecution: { nodeSelectorTerms: [ matchExpressions: [ {key: nodegroup, operator: In, values: [ CapInfra ] } ] ] } }"
+        sizing.nats.affinity: "{ requiredDuringSchedulingIgnoredDuringExecution: { nodeSelectorTerms: [ matchExpressions: [ {key: nodegroup, operator: In, values: [ CapInfra ] } ] ] } }"
+        sizing.nfs_broker.affinity: "{ requiredDuringSchedulingIgnoredDuringExecution: { nodeSelectorTerms: [ matchExpressions: [ {key: nodegroup, operator: In, values: [ CapInfra ] } ] ] } }"
+        sizing.router.affinity: "{ requiredDuringSchedulingIgnoredDuringExecution: { nodeSelectorTerms: [ matchExpressions: [ {key: nodegroup, operator: In, values: [ CapInfra ] } ] ] } }"
+        sizing.routing_api.affinity: "{ requiredDuringSchedulingIgnoredDuringExecution: { nodeSelectorTerms: [ matchExpressions: [ {key: nodegroup, operator: In, values: [ CapInfra ] } ] ] } }"
+        sizing.syslog_scheduler.affinity: "{ requiredDuringSchedulingIgnoredDuringExecution: { nodeSelectorTerms: [ matchExpressions: [ {key: nodegroup, operator: In, values: [ CapInfra ]} ] ] } }"
+        sizing.tcp_router.affinity: "{ requiredDuringSchedulingIgnoredDuringExecution: { nodeSelectorTerms: [ matchExpressions: [ {key: nodegroup, operator: In, values: [ CapInfra ] } ] ] } }"
+  InternalNlb:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Scheme: internal
+      Subnets: [ !Ref PrivateSubnet1ID, !Ref PrivateSubnet2ID, !Ref PrivateSubnet3ID ]
+      Type: network
+  InternalNlbTargetGroupUaa:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      Port: 2793
+      Protocol: TCP
+      VpcId: !Ref VPCID
+  InternalNlbListenerUaa:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn: !Ref InternalNlbTargetGroupUaa
+      LoadBalancerArn: !Ref InternalNlb
+      Port: 2793
+      Protocol: TCP
+  InternalNlbTargetGroupWss:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      Port: 4433
+      Protocol: TCP
+      VpcId: !Ref VPCID
+  InternalNlbListenerWss:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn: !Ref InternalNlbTargetGroupUaa
+      LoadBalancerArn: !Ref InternalNlb
+      Port: 4433
+      Protocol: TCP
+  NlbIps:
+    Type: "Custom::GetNlbIps"
+    Version: '1.0'
+    Properties:
+      ServiceToken: !GetAtt GetNlbIpsLambda.Arn
+      NlbArn: !Ref InternalNlb
+  NodeGroupStack:
+    Type: "AWS::CloudFormation::Stack"
+    Properties:
+      TemplateURL: !Sub 'https://${QSS3BucketName}.s3.amazonaws.com/${QSS3KeyPrefix}submodules/quickstart-aws-eks/templates/aws-eks-nodegroup.template.yaml'
+      Parameters:
+        KeyPairName: !Ref 'KeyPairName'
+        PrivateSubnet1ID: !Ref PrivateSubnet1ID
+        PrivateSubnet2ID: !Ref PrivateSubnet2ID
+        PrivateSubnet3ID: !Ref PrivateSubnet3ID
+        VPCID: !Ref VPCID
+        NodeInstanceType: !Ref NodeInstanceType
+        NumberOfNodes: !Ref NumberOfNodes
+        NodeGroupName: !Ref NodeGroupName
+        NodeVolumeSize: !Ref NodeVolumeSize
+        EKSControlPlane: !Ref EKSClusterName
+        ControlPlaneSecurityGroup: !Ref ControlPlaneSecurityGroup
+        NodeInstanceProfile: !Ref NodeInstanceProfile
+        KubernetesVersion: !Ref KubernetesVersion
+        TargetGroupARNs: !Join [ ",", [ !Ref InternalNlbTargetGroupWss, !Ref InternalNlbTargetGroupUaa ] ]
+        BootstrapArguments: "--kubelet-extra-args --node-labels=nodegroup=CapInfra"

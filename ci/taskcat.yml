@@ -7,7 +7,7 @@ global:
     - us-east-1
     - us-west-2
   reporting: true
- 
+  package-lambda: true
 tests:
   quickstart-suse-cap-defaults:
     parameter_input: suse-cap-defaults.json
