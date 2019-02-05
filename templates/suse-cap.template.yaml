@@ -141,6 +141,12 @@ Parameters:
     Type: String
     AllowedValues: [ "1.11", "1.10" ]
     Default: "1.11"
+  UaaPassword:
+    Type: String
+    NoEcho: true
+  AdminPassword:
+    Type: String
+    NoEcho: true
 Resources:
   Route53WildCard:
     Type: AWS::Route53::RecordSet
@@ -383,23 +389,8 @@ Resources:
       Manifest:
         kind: Namespace
         apiVersion: v1
-        name: cap-uaa
-  AdminPassword:
-    Type: 'AWS::SecretsManager::Secret'
-    Properties:
-      GenerateSecretString:
-        SecretStringTemplate: '{}'
-        GenerateStringKey: "password"
-        PasswordLength: 30
-        ExcludeCharacters: '"/\'
-  UaaPassword:
-    Type: 'AWS::SecretsManager::Secret'
-    Properties:
-      GenerateSecretString:
-        SecretStringTemplate: '{}'
-        GenerateStringKey: "password"
-        PasswordLength: 30
-        ExcludeCharacters: '"/\'
+        metadata:
+          name: cap-uaa
   Uaa:
     Type: "Custom::Helm"
     DependsOn: NodeGroupStack
@@ -413,67 +404,42 @@ Resources:
       Namespace: !GetAtt UaaNamespace.name
       Values:
         env.DOMAIN: !Ref DomainName
-        env.UAA_HOST: !Sub 'uaa.${DomainName}'
-        env.UAA_PORT: 2793
-        env.GARDEN_ROOTFS_DRIVER: overlay-xfs
-        env.GARDEN_APPARMOR_PROFILE: ""
-        kube.external_ips: [!GetAtt NlbIps.Ip1, !GetAtt NlbIps.Ip2, !GetAtt NlbIps.Ip3]
-        kube.storage_class.persistent: "gp2"
-        kube.storage_class.shared: "gp2"
-        kube.registry.hostname: "registry.suse.com"
-        kube.registry.username: ""
-        kube.registry.password: ""
-        kube.organization: "cap"
-        kube.psp.privileged: "suse.cap.psp"
-        secrets.CLUSTER_ADMIN_PASSWORD: !Join ['', ['{{resolve:secretsmanager:', !Ref AdminPassword, ':SecretString:password}}' ]]
-        secrets.UAA_ADMIN_CLIENT_SECRET: !Join ['', ['{{resolve:secretsmanager:', !Ref UaaPassword, ':SecretString:password}}' ]]
-        sizing.adapter.count: 3
-        sizing.api_group.count: 3
-        sizing.cc_clock.count: 3
-        sizing.cc_uploader.count: 3
-        sizing.cc_worker.count: 3
-        sizing.cf_usb.count: 3
-        sizing.diego_api.count: 3
-        sizing.diego_brain.count: 3
-        sizing.diego_cell.count: 6
-        sizing.diego_ssh.count: 3
-        sizing.doppler.count: 3
-        sizing.log-api.count: 3
-        sizing.mysql.count: 3
-        sizing.nats.count: 3
-        sizing.nfs_broker.count: 3
-        sizing.router.count: 3
-        sizing.routing_api.count: 3
-        sizing.syslog_scheduler.count: 3
-        sizing.tcp_router.count: 3
-        sizing.cc_uploader.capabilities: ["SYS_RESOURCE"]
-        sizing.diego_api.capabilities: ["SYS_RESOURCE"]
-        sizing.diego_brain.capabilities: ["SYS_RESOURCE"]
-        sizing.diego_ssh.capabilities: ["SYS_RESOURCE"]
-        sizing.nats.capabilities: ["SYS_RESOURCE"]
-        sizing.router.capabilities: ["SYS_RESOURCE"]
-        sizing.routing_api.capabilities: ["SYS_RESOURCE"]
-        # Diego cells go onto the default node group
-        sizing.diego_cell.affinity: "{ requiredDuringSchedulingIgnoredDuringExecution: { nodeSelectorTerms: [ matchExpressions: [ {key: cap-infra, operator: DoesNotExist} ] ] } }"
-        # All cap resources go onto the cap-infra nodes
-        sizing.adapter.affinity: "{ requiredDuringSchedulingIgnoredDuringExecution: { nodeSelectorTerms: [ matchExpressions: [ {key: nodegroup, operator: In, values: [ CapInfra ] } ] ] } }"
-        sizing.api_group.affinity: "{ requiredDuringSchedulingIgnoredDuringExecution: { nodeSelectorTerms: [ matchExpressions: [ {key: nodegroup, operator: In, values: [ CapInfra ] } ] ] } }"
-        sizing.cc_clock.affinity: "{ requiredDuringSchedulingIgnoredDuringExecution: { nodeSelectorTerms: [ matchExpressions: [ {key: nodegroup, operator: In, values: [ CapInfra ] } ] ] } }"
-        sizing.cc_uploader.affinity: "{ requiredDuringSchedulingIgnoredDuringExecution: { nodeSelectorTerms: [ matchExpressions: [ {key: nodegroup, operator: In, values: [ CapInfra ] } ] ] } }"
-        sizing.cc_worker.affinity: "{ requiredDuringSchedulingIgnoredDuringExecution: { nodeSelectorTerms: [ matchExpressions: [ {key: nodegroup, operator: In, values: [ CapInfra ] } ] ] } }"
-        sizing.cf_usb.affinity: "{ requiredDuringSchedulingIgnoredDuringExecution: { nodeSelectorTerms: [ matchExpressions: [ {key: nodegroup, operator: In, values: [ CapInfra ] } ] ] } }"
-        sizing.diego_api.affinity: "{ requiredDuringSchedulingIgnoredDuringExecution: { nodeSelectorTerms: [ matchExpressions: [ {key: nodegroup, operator: In, values: [ CapInfra ] } ] ] } }"
-        sizing.diego_brain.affinity: "{ requiredDuringSchedulingIgnoredDuringExecution: { nodeSelectorTerms: [ matchExpressions: [ {key: nodegroup, operator: In, values: [ CapInfra ] } ] ] } }"
-        sizing.diego_ssh.affinity: "{ requiredDuringSchedulingIgnoredDuringExecution: { nodeSelectorTerms: [ matchExpressions: [ {key: nodegroup, operator: In, values: [ CapInfra ] } ] ] } }"
-        sizing.doppler.affinity: "{ requiredDuringSchedulingIgnoredDuringExecution: { nodeSelectorTerms: [ matchExpressions: [ {key: nodegroup, operator: In, values: [ CapInfra ] } ] ] } }"
-        sizing.log-api.affinity: "{ requiredDuringSchedulingIgnoredDuringExecution: { nodeSelectorTerms: [ matchExpressions: [ {key: nodegroup, operator: In, values: [ CapInfra ] } ] ] } }"
-        sizing.mysql.affinity: "{ requiredDuringSchedulingIgnoredDuringExecution: { nodeSelectorTerms: [ matchExpressions: [ {key: nodegroup, operator: In, values: [ CapInfra ] } ] ] } }"
-        sizing.nats.affinity: "{ requiredDuringSchedulingIgnoredDuringExecution: { nodeSelectorTerms: [ matchExpressions: [ {key: nodegroup, operator: In, values: [ CapInfra ] } ] ] } }"
-        sizing.nfs_broker.affinity: "{ requiredDuringSchedulingIgnoredDuringExecution: { nodeSelectorTerms: [ matchExpressions: [ {key: nodegroup, operator: In, values: [ CapInfra ] } ] ] } }"
-        sizing.router.affinity: "{ requiredDuringSchedulingIgnoredDuringExecution: { nodeSelectorTerms: [ matchExpressions: [ {key: nodegroup, operator: In, values: [ CapInfra ] } ] ] } }"
-        sizing.routing_api.affinity: "{ requiredDuringSchedulingIgnoredDuringExecution: { nodeSelectorTerms: [ matchExpressions: [ {key: nodegroup, operator: In, values: [ CapInfra ] } ] ] } }"
-        sizing.syslog_scheduler.affinity: "{ requiredDuringSchedulingIgnoredDuringExecution: { nodeSelectorTerms: [ matchExpressions: [ {key: nodegroup, operator: In, values: [ CapInfra ]} ] ] } }"
-        sizing.tcp_router.affinity: "{ requiredDuringSchedulingIgnoredDuringExecution: { nodeSelectorTerms: [ matchExpressions: [ {key: nodegroup, operator: In, values: [ CapInfra ] } ] ] } }"
+        env.UAA_HOST: !Sub "uaa.${DomainName}"
+        secrets.UAA_ADMIN_CLIENT_SECRET: !Ref UaaPassword
+        secrets.CLUSTER_ADMIN_PASSWORD: !Ref AdminPassword
+      ValueYaml: |
+        env:
+          GARDEN_ROOTFS_DRIVER: overlay-xfs
+          GARDEN_APPARMOR_PROFILE: ""
+        services:
+          loadbalanced: true
+        kube:
+          external_ips: []
+          storage_class:
+            persistent: "gp2"
+            shared: "gp2"
+          hostpath_available: false
+          registry:
+            hostname: "registry.suse.com"
+            username: ""
+            password: ""
+          organization: "cap"
+          auth: "rbac"
+        sizing:
+          mysql:
+            affinity:
+              requiredDuringSchedulingIgnoredDuringExecution:
+                nodeSelectorTerms: [matchExpressions: [ {key: nodegroup, operator: In, values: [ CapInfra ] } ]]
+            count: 3
+          secret_generation:
+            affinity:
+              requiredDuringSchedulingIgnoredDuringExecution:
+                nodeSelectorTerms: [matchExpressions: [ {key: nodegroup, operator: In, values: [ CapInfra ] } ]]
+          uaa:
+            affinity:
+              requiredDuringSchedulingIgnoredDuringExecution:
+                nodeSelectorTerms: [matchExpressions: [ {key: nodegroup, operator: In, values: [ CapInfra ] } ]]
+            count: 3
   InternalNlb:
     Type: AWS::ElasticLoadBalancingV2::LoadBalancer
     Properties:
@@ -534,5 +500,13 @@ Resources:
         ControlPlaneSecurityGroup: !Ref ControlPlaneSecurityGroup
         NodeInstanceProfile: !Ref NodeInstanceProfile
         KubernetesVersion: !Ref KubernetesVersion
-        TargetGroupARNs: !Join [ ",", [ !Ref InternalNlbTargetGroupWss, !Ref InternalNlbTargetGroupUaa ] ]
+        TargetGroupARNs: !Join
+        - ","
+        - - !Ref InternalNlbTargetGroupWss
+          - !Ref InternalNlbTargetGroupUaa
+          - !Ref ExternalNlbTargetGroupSsh
+          - !Ref ExternalNlbTargetGroupUaa
+          - !Ref ExternalNlbTargetGroupWss
+          - !Ref ExternalNlbTargetGroupHttp
+          - !Ref ExternalNlbTargetGroupHttps
         BootstrapArguments: "--kubelet-extra-args --node-labels=nodegroup=CapInfra"
