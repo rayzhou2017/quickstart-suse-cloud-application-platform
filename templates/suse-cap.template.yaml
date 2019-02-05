@@ -424,7 +424,7 @@ Resources:
             username: ""
             password: ""
           organization: "cap"
-          auth: "rbac"
+        auth: "rbac"
         sizing:
           mysql:
             affinity:
