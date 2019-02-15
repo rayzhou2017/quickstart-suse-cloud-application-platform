@@ -2,7 +2,7 @@
 	path = submodules/quickstart-aws-vpc
 	url = git@github.com:aws-quickstart/quickstart-aws-vpc.git
 	branch = master
-[submodule "submodules/quickstart-aws-eks"]
+[submodule "submodules/quickstart-amazon-eks"]
 	path = submodules/quickstart-amazon-eks
 	url = git@github.com:aws-quickstart/quickstart-aws-eks.git
 	branch = master

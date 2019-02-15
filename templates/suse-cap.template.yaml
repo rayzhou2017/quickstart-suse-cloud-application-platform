@@ -10,14 +10,11 @@ Parameters:
   KubeConfigKmsContext:
     Type: String
     Default: "EKSQuickStart"
-  NodeGroupIAMRole:
-    Type: String
   NodeInstanceProfile:
     Type: String
   HostedZoneID:
     Description: 'Route 53 Hosted Zone ID to use'
     Type: String
-    MaxLength: '32'
   DomainName:
     Description: 'domain name configured for the cluster'
     Type: String
@@ -27,14 +24,6 @@ Parameters:
     Type: String
   PrivateSubnet3ID:
     Type: String
-  PublicSubnet1ID:
-    Type: String
-  PublicSubnet2ID:
-    Type: String
-  PublicSubnet3ID:
-    Type: String
-  NodeSecurityGroup:
-    Type: AWS::EC2::SecurityGroup::Id
   QSS3BucketName:
     Type: String
   QSS3KeyPrefix:
@@ -147,237 +136,27 @@ Parameters:
   AdminPassword:
     Type: String
     NoEcho: true
+  NodeInstanceRoleName:
+    Type: String
 Resources:
-  Route53WildCard:
-    Type: AWS::Route53::RecordSet
-    Properties:
-      Type: A
-      Name: !Sub '*.${DomainName}'
-      AliasTarget:
-        HostedZoneId: !GetAtt 'ExternalNlb.CanonicalHostedZoneID'
-        DNSName: !GetAtt 'ExternalNlb.DNSName'
-      HostedZoneId: !Ref 'HostedZoneID'
-  Route53ApexRecord:
-    Type: AWS::Route53::RecordSet
-    Properties:
-      Type: A
-      Name: !Ref 'DomainName'
-      AliasTarget:
-        HostedZoneId: !GetAtt 'ExternalNlb.CanonicalHostedZoneID'
-        DNSName: !GetAtt 'ExternalNlb.DNSName'
-      HostedZoneId: !Ref 'HostedZoneID'
-  ExternalNlb:
-    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
-    Properties:
-      Scheme: internet-facing
-      Subnets: [ !Ref PublicSubnet1ID, !Ref PublicSubnet2ID, !Ref PublicSubnet3ID ]
-      Type: network
-  ExternalNlbTargetGroupUaa:
-    Type: AWS::ElasticLoadBalancingV2::TargetGroup
-    Properties:
-      Port: 2793
-      Protocol: TCP
-      VpcId: !Ref VPCID
-  ExternalNlbListenerUaa:
-    Type: AWS::ElasticLoadBalancingV2::Listener
-    Properties:
-      DefaultActions:
-        - Type: forward
-          TargetGroupArn: !Ref ExternalNlbTargetGroupUaa
-      LoadBalancerArn: !Ref ExternalNlb
-      Port: 2793
-      Protocol: TCP
-  ExternalNlbTargetGroupWss:
-    Type: AWS::ElasticLoadBalancingV2::TargetGroup
-    Properties:
-      Port: 4433
-      Protocol: TCP
-      VpcId: !Ref VPCID
-  ExternalNlbListenerWss:
-    Type: AWS::ElasticLoadBalancingV2::Listener
-    Properties:
-      DefaultActions:
-        - Type: forward
-          TargetGroupArn: !Ref ExternalNlbTargetGroupUaa
-      LoadBalancerArn: !Ref ExternalNlb
-      Port: 4433
-      Protocol: TCP
-  ExternalNlbTargetGroupHttp:
-    Type: AWS::ElasticLoadBalancingV2::TargetGroup
-    Properties:
-      Port: 80
-      Protocol: TCP
-      VpcId: !Ref VPCID
-  ExternalNlbListenerHttp:
-    Type: AWS::ElasticLoadBalancingV2::Listener
-    Properties:
-      DefaultActions:
-        - Type: forward
-          TargetGroupArn: !Ref ExternalNlbTargetGroupUaa
-      LoadBalancerArn: !Ref ExternalNlb
-      Port: 80
-      Protocol: TCP
-  ExternalNlbTargetGroupHttps:
-    Type: AWS::ElasticLoadBalancingV2::TargetGroup
-    Properties:
-      Port: 443
-      Protocol: TCP
-      VpcId: !Ref VPCID
-  ExternalNlbListenerHttps:
-    Type: AWS::ElasticLoadBalancingV2::Listener
-    Properties:
-      DefaultActions:
-        - Type: forward
-          TargetGroupArn: !Ref ExternalNlbTargetGroupUaa
-      LoadBalancerArn: !Ref ExternalNlb
-      Port: 443
-      Protocol: TCP
-  ExternalNlbTargetGroupSsh:
-    Type: AWS::ElasticLoadBalancingV2::TargetGroup
-    Properties:
-      Port: 2222
-      Protocol: TCP
-      VpcId: !Ref VPCID
-  ExternalNlbListenerSsh:
-    Type: AWS::ElasticLoadBalancingV2::Listener
-    Properties:
-      DefaultActions:
-        - Type: forward
-          TargetGroupArn: !Ref ExternalNlbTargetGroupUaa
-      LoadBalancerArn: !Ref ExternalNlb
-      Port: 2222
-      Protocol: TCP
-  CopyZipsRole:
-    Type: AWS::IAM::Role
-    Properties:
-      AssumeRolePolicyDocument:
-        Version: '2012-10-17'
-        Statement:
-          - Effect: Allow
-            Principal:
-              Service: lambda.amazonaws.com
-            Action: sts:AssumeRole
-      ManagedPolicyArns:
-        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
-      Policies:
-        - PolicyName: lambda-copier
-          PolicyDocument:
-            Version: '2012-10-17'
-            Statement:
-              - Effect: Allow
-                Action: s3:GetObject
-                Resource: !Sub 'arn:aws:s3:::${QSS3BucketName}/${QSS3KeyPrefix}*'
-              - Effect: Allow
-                Action:
-                  - s3:PutObject
-                  - s3:DeleteObject
-                Resource: !Sub 'arn:aws:s3:::${LambdaZipsBucket}/${QSS3KeyPrefix}*'
-  GetNlbIpsRole:
-    Type: "AWS::IAM::Role"
-    Properties:
-      AssumeRolePolicyDocument:
-        Version: 2012-10-17
-        Statement:
-          - Effect: Allow
-            Principal:
-              Service: lambda.amazonaws.com
-            Action: sts:AssumeRole
-      Policies:
-        - PolicyName: eksStackPolicy
-          PolicyDocument:
-            Version: '2012-10-17'
-            Statement:
-              - Effect: Allow
-                Action:
-                  - logs:CreateLogGroup
-                  - logs:CreateLogStream
-                  - logs:PutLogEvents
-                  - elasticloadbalancing:DescribeLoadBalancers
-                Resource:
-                  - "*"
-  LambdaZipsBucket:
-    Type: AWS::S3::Bucket
-  CopyZips:
-    Type: Custom::CopyZips
-    Properties:
-      ServiceToken: !GetAtt 'CopyZipsFunction.Arn'
-      DestBucket: !Ref LambdaZipsBucket
-      SourceBucket: !Ref 'QSS3BucketName'
-      Prefix: !Ref 'QSS3KeyPrefix'
-      Objects:
-        - functions/packages/GetNlbIps/lambda.zip
-  GetNlbIpsLambda:
-    DependsOn: CopyZips
-    Type: AWS::Lambda::Function
-    Properties:
-      Handler: lambda_function.lambda_handler
-      MemorySize: 128
-      Role: !GetAtt GetNlbIpsRole.Arn
-      Runtime: python3.6
-      Timeout: 900
-      Code:
-        S3Bucket: !Ref LambdaZipsBucket
-        S3Key: !Sub '${QSS3KeyPrefix}functions/packages/GetNlbIps/lambda.zip'
-  CopyZipsFunction:
-    Type: AWS::Lambda::Function
-    Properties:
-      Description: Copies objects from a source S3 bucket to a destination
-      Handler: index.handler
-      Runtime: python2.7
-      Role: !GetAtt CopyZipsRole.Arn
-      Timeout: 900
-      Code:
-        ZipFile: |
-          import json
-          import logging
-          import threading
-          import boto3
-          import cfnresponse
-          def copy_objects(source_bucket, dest_bucket, prefix, objects):
-              s3 = boto3.client('s3')
-              for o in objects:
-                  key = prefix + o
-                  copy_source = {
-                      'Bucket': source_bucket,
-                      'Key': key
-                  }
-                  print('copy_source: %s' % copy_source)
-                  print('dest_bucket = %s'%dest_bucket)
-                  print('key = %s' %key)
-                  s3.copy_object(CopySource=copy_source, Bucket=dest_bucket,
-              Key=key)
-          def delete_objects(bucket, prefix, objects):
-              s3 = boto3.client('s3')
-              objects = {'Objects': [{'Key': prefix + o} for o in objects]}
-              s3.delete_objects(Bucket=bucket, Delete=objects)
-          def timeout(event, context):
-              logging.error('Execution is about to time out, sending failure response to CloudFormation')
-              cfnresponse.send(event, context, cfnresponse.FAILED, {}, physical_resource_id)
-          def handler(event, context):
-              physical_resource_id = None
-              if "PhysicalResourceId" in event.keys():
-                physical_resource_id = event["PhysicalResourceId"]
-              # make sure we send a failure to CloudFormation if the function is going to timeout
-              timer = threading.Timer((context.get_remaining_time_in_millis()
-              / 1000.00) - 0.5, timeout, args=[event, context])
-              timer.start()
-              print('Received event: %s' % json.dumps(event))
-              status = cfnresponse.SUCCESS
-              try:
-                  source_bucket = event['ResourceProperties']['SourceBucket']
-                  dest_bucket = event['ResourceProperties']['DestBucket']
-                  prefix = event['ResourceProperties']['Prefix']
-                  objects = event['ResourceProperties']['Objects']
-                  if event['RequestType'] == 'Delete':
-                      delete_objects(dest_bucket, prefix, objects)
-                  else:
-                      copy_objects(source_bucket, dest_bucket, prefix, objects)
-              except Exception as e:
-                  logging.error('Exception: %s' % e, exc_info=True)
-                  status = cfnresponse.FAILED
-              finally:
-                  timer.cancel()
-                  cfnresponse.send(event, context, status, {}, physical_resource_id)
+  #Route53WildCard:
+  #  Type: AWS::Route53::RecordSet
+  #  Properties:
+  #    Type: A
+  #    Name: !Sub '*.${DomainName}'
+  #    AliasTarget:
+  #      HostedZoneId: !GetAtt 'ExternalNlb.CanonicalHostedZoneID'
+  #      DNSName: !GetAtt 'ExternalNlb.DNSName'
+  #    HostedZoneId: !Ref 'HostedZoneID'
+  #Route53ApexRecord:
+  #  Type: AWS::Route53::RecordSet
+  #  Properties:
+  #    Type: A
+  #    Name: !Ref 'DomainName'
+  #    AliasTarget:
+  #      HostedZoneId: !GetAtt 'ExternalNlb.CanonicalHostedZoneID'
+  #      DNSName: !GetAtt 'ExternalNlb.DNSName'
+  #    HostedZoneId: !Ref 'HostedZoneID'
   UaaNamespace:
     Type: "Custom::KubeManifest"
     Version: '1.0'
@@ -402,6 +181,7 @@ Resources:
       RepoUrl: https://kubernetes-charts.suse.com/
       Chart: suse/uaa
       Namespace: !GetAtt UaaNamespace.name
+      Async: true
       Values:
         env.DOMAIN: !Ref DomainName
         env.UAA_HOST: !Sub "uaa.${DomainName}"
@@ -409,28 +189,57 @@ Resources:
         secrets.CLUSTER_ADMIN_PASSWORD: !Ref AdminPassword
       ValueYaml: |
         env:
+          UAA_PORT: 2793
           GARDEN_ROOTFS_DRIVER: overlay-xfs
           GARDEN_APPARMOR_PROFILE: ""
-        services:
-          loadbalanced: true
-        kube:
-          external_ips: []
-          storage_class:
-            persistent: "gp2"
-            shared: "gp2"
-          hostpath_available: false
-          registry:
-            hostname: "registry.suse.com"
-            username: ""
-            password: ""
-          organization: "cap"
-        auth: "rbac"
         sizing:
+          cc_uploader:
+            capabilities: ["SYS_RESOURCE"]
+            affinity:
+              requiredDuringSchedulingIgnoredDuringExecution:
+                nodeSelectorTerms: [matchExpressions: [ {key: nodegroup, operator: In, values: [ CapInfra ] } ]]
+            count: 2
+          diego_api:
+            capabilities: ["SYS_RESOURCE"]
+            affinity:
+              requiredDuringSchedulingIgnoredDuringExecution:
+                nodeSelectorTerms: [matchExpressions: [ {key: nodegroup, operator: In, values: [ CapInfra ] } ]]
+            count: 2
+          diego_brain:
+            capabilities: ["SYS_RESOURCE"]
+            affinity:
+              requiredDuringSchedulingIgnoredDuringExecution:
+                nodeSelectorTerms: [matchExpressions: [ {key: nodegroup, operator: In, values: [ CapInfra ] } ]]
+            count: 2
+          diego_ssh:
+            capabilities: ["SYS_RESOURCE"]
+            affinity:
+              requiredDuringSchedulingIgnoredDuringExecution:
+                nodeSelectorTerms: [matchExpressions: [ {key: nodegroup, operator: In, values: [ CapInfra ] } ]]
+            count: 2
+          nats:
+            capabilities: ["SYS_RESOURCE"]
+            affinity:
+              requiredDuringSchedulingIgnoredDuringExecution:
+                nodeSelectorTerms: [matchExpressions: [ {key: nodegroup, operator: In, values: [ CapInfra ] } ]]
+            count: 2
+          router:
+            capabilities: ["SYS_RESOURCE"]
+            affinity:
+              requiredDuringSchedulingIgnoredDuringExecution:
+                nodeSelectorTerms: [matchExpressions: [ {key: nodegroup, operator: In, values: [ CapInfra ] } ]]
+            count: 2
+          routing_api:
+            capabilities: ["SYS_RESOURCE"]
+            affinity:
+              requiredDuringSchedulingIgnoredDuringExecution:
+                nodeSelectorTerms: [matchExpressions: [ {key: nodegroup, operator: In, values: [ CapInfra ] } ]]
+            count: 2
           mysql:
             affinity:
               requiredDuringSchedulingIgnoredDuringExecution:
                 nodeSelectorTerms: [matchExpressions: [ {key: nodegroup, operator: In, values: [ CapInfra ] } ]]
-            count: 3
+            count: 2
           secret_generation:
             affinity:
               requiredDuringSchedulingIgnoredDuringExecution:
@@ -439,53 +248,23 @@ Resources:
             affinity:
               requiredDuringSchedulingIgnoredDuringExecution:
                 nodeSelectorTerms: [matchExpressions: [ {key: nodegroup, operator: In, values: [ CapInfra ] } ]]
-            count: 3
-  InternalNlb:
-    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
-    Properties:
-      Scheme: internal
-      Subnets: [ !Ref PrivateSubnet1ID, !Ref PrivateSubnet2ID, !Ref PrivateSubnet3ID ]
-      Type: network
-  InternalNlbTargetGroupUaa:
-    Type: AWS::ElasticLoadBalancingV2::TargetGroup
-    Properties:
-      Port: 2793
-      Protocol: TCP
-      VpcId: !Ref VPCID
-  InternalNlbListenerUaa:
-    Type: AWS::ElasticLoadBalancingV2::Listener
-    Properties:
-      DefaultActions:
-        - Type: forward
-          TargetGroupArn: !Ref InternalNlbTargetGroupUaa
-      LoadBalancerArn: !Ref InternalNlb
-      Port: 2793
-      Protocol: TCP
-  InternalNlbTargetGroupWss:
-    Type: AWS::ElasticLoadBalancingV2::TargetGroup
-    Properties:
-      Port: 4433
-      Protocol: TCP
-      VpcId: !Ref VPCID
-  InternalNlbListenerWss:
-    Type: AWS::ElasticLoadBalancingV2::Listener
-    Properties:
-      DefaultActions:
-        - Type: forward
-          TargetGroupArn: !Ref InternalNlbTargetGroupUaa
-      LoadBalancerArn: !Ref InternalNlb
-      Port: 4433
-      Protocol: TCP
-  NlbIps:
-    Type: "Custom::GetNlbIps"
-    Version: '1.0'
-    Properties:
-      ServiceToken: !GetAtt GetNlbIpsLambda.Arn
-      NlbArn: !Ref InternalNlb
+            count: 2
+        services:
+            loadbalanced: true
+        kube:
+          storage_class:
+            persistent: gp2
+            shared: gp2
+        registry:
+          hostname: "registry.suse.com"
+          username: ""
+          password: ""
+          organization: "cap"
+        auth: rbac
   NodeGroupStack:
     Type: "AWS::CloudFormation::Stack"
     Properties:
-      TemplateURL: !Sub 'https://${QSS3BucketName}.s3.amazonaws.com/${QSS3KeyPrefix}submodules/quickstart-aws-eks/templates/aws-eks-nodegroup.template.yaml'
+      TemplateURL: !Sub 'https://${QSS3BucketName}.s3.amazonaws.com/${QSS3KeyPrefix}submodules/quickstart-amazon-eks/templates/amazon-eks-nodegroup.template.yaml'
       Parameters:
         KeyPairName: !Ref 'KeyPairName'
         PrivateSubnet1ID: !Ref PrivateSubnet1ID
@@ -500,13 +279,5 @@ Resources:
         ControlPlaneSecurityGroup: !Ref ControlPlaneSecurityGroup
         NodeInstanceProfile: !Ref NodeInstanceProfile
         KubernetesVersion: !Ref KubernetesVersion
-        TargetGroupARNs: !Join
-        - ","
-        - - !Ref InternalNlbTargetGroupWss
-          - !Ref InternalNlbTargetGroupUaa
-          - !Ref ExternalNlbTargetGroupSsh
-          - !Ref ExternalNlbTargetGroupUaa
-          - !Ref ExternalNlbTargetGroupWss
-          - !Ref ExternalNlbTargetGroupHttp
-          - !Ref ExternalNlbTargetGroupHttps
         BootstrapArguments: "--kubelet-extra-args --node-labels=nodegroup=CapInfra"
+        NodeInstanceRoleName: !Ref NodeInstanceRoleName

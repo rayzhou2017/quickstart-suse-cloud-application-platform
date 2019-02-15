@@ -14,5 +14,13 @@
   {
     "ParameterKey": "QSS3BucketName",
     "ParameterValue": "$[taskcat_autobucket]"
+  },
+  {
+    "ParameterKey": "DomainName",
+    "ParameterValue": "override"
+  },
+  {
+    "ParameterKey": "HostedZoneID",
+    "ParameterValue": "override"
   }
 ]

@@ -242,6 +242,12 @@ Parameters:
     Type: String
     AllowedValues: [ "1.11", "1.10" ]
     Default: "1.11"
+  HostedZoneID:
+    Description: 'Route 53 Hosted Zone ID to use'
+    Type: String
+  DomainName:
+    Description: 'domain name configured for the cluster'
+    Type: String
 Resources:
   VPCStack:
     Type: AWS::CloudFormation::Stack
@@ -265,14 +271,14 @@ Resources:
   EKSStack:
     Type: AWS::CloudFormation::Stack
     Properties:
-      TemplateURL: !Sub 'https://${QSS3BucketName}.s3.amazonaws.com/${QSS3KeyPrefix}submodules/quickstart-aws-eks/templates/aws-eks.template.yaml'
+      TemplateURL: !Sub 'https://${QSS3BucketName}.s3.amazonaws.com/${QSS3KeyPrefix}submodules/quickstart-amazon-eks/templates/amazon-eks.template.yaml'
       Parameters:
         PublicSubnet1ID: !GetAtt VPCStack.Outputs.PublicSubnet1ID
         PublicSubnet2ID: !GetAtt VPCStack.Outputs.PublicSubnet2ID
         PublicSubnet3ID: !GetAtt VPCStack.Outputs.PublicSubnet3ID
         KeyPairName: !Ref KeyPairName
         QSS3BucketName: !Ref QSS3BucketName
-        QSS3KeyPrefix: !Sub "${QSS3KeyPrefix}submodules/quickstart-aws-eks/"
+        QSS3KeyPrefix: !Sub "${QSS3KeyPrefix}submodules/quickstart-amazon-eks/"
         PrivateSubnet1ID: !GetAtt VPCStack.Outputs.PrivateSubnet1AID
         PrivateSubnet2ID: !GetAtt VPCStack.Outputs.PrivateSubnet2AID
         PrivateSubnet3ID: !GetAtt VPCStack.Outputs.PrivateSubnet3AID
@@ -295,13 +301,39 @@ Resources:
         KubeManifestLambdaArn: !GetAtt EKSStack.Outputs.KubeManifestLambdaArn
         KubeConfigPath: !GetAtt EKSStack.Outputs.KubeConfigPath
         KubeConfigKmsContext: "EKSQuickStart"
-        NodeGroupIAMRole: !GetAtt EKSStack.Outputs.NodeGroupIAMRole
-        NodeGroupSecurityGroup: !GetAtt EKSStack.Outputs.NodeGroupSecurityGroup
         ControlPlaneSecurityGroup: !GetAtt EKSStack.Outputs.ControlPlaneSecurityGroup
         EKSClusterName: !GetAtt EKSStack.Outputs.EKSClusterName
         NodeInstanceProfile: !GetAtt EKSStack.Outputs.NodeInstanceProfile
         KubernetesVersion: !Ref KubernetesVersion
-        NodeSecurityGroup: !GetAtt EKSStack.Outputs.NodeGroupSecurityGroup
+        PrivateSubnet1ID: !GetAtt VPCStack.Outputs.PrivateSubnet1AID
+        PrivateSubnet2ID: !GetAtt VPCStack.Outputs.PrivateSubnet2AID
+        PrivateSubnet3ID: !GetAtt VPCStack.Outputs.PrivateSubnet3AID
+        VPCID: !GetAtt VPCStack.Outputs.VPCID
+        HelmLambdaArn: !GetAtt EKSStack.Outputs.HelmLambdaArn
+        AdminPassword: !Join ['', ['{{resolve:secretsmanager:', !Ref AdminPassword, ':SecretString:password}}' ]]
+        QSS3BucketName: !Ref QSS3BucketName
+        QSS3KeyPrefix: !Ref QSS3KeyPrefix
+        KeyPairName: !Ref KeyPairName
+        UaaPassword: !Join ['', ['{{resolve:secretsmanager:', !Ref UaaPassword, ':SecretString:password}}' ]]
+        DomainName: !Ref DomainName
+        HostedZoneID: !Ref HostedZoneID
+        NodeInstanceRoleName: !GetAtt EKSStack.Outputs.NodeInstanceRoleName
+  AdminPassword:
+    Type: 'AWS::SecretsManager::Secret'
+    Properties:
+      GenerateSecretString:
+        SecretStringTemplate: '{}'
+        GenerateStringKey: "password"
+        PasswordLength: 30
+        ExcludePunctuation: true
+  UaaPassword:
+    Type: 'AWS::SecretsManager::Secret'
+    Properties:
+      GenerateSecretString:
+        SecretStringTemplate: '{}'
+        GenerateStringKey: "password"
+        PasswordLength: 30
+        ExcludePunctuation: true
 Outputs:
   KubeConfigPath:
     Value: !GetAtt EKSStack.Outputs.KubeConfigPath
