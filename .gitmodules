@@ -3,6 +3,6 @@
 	url = git@github.com:aws-quickstart/quickstart-aws-vpc.git
 	branch = master
 [submodule "submodules/quickstart-aws-eks"]
-	path = submodules/quickstart-aws-eks
+	path = submodules/quickstart-amazon-eks
 	url = git@github.com:aws-quickstart/quickstart-aws-eks.git
 	branch = master
