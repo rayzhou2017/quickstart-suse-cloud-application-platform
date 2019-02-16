@@ -5,6 +5,8 @@ Parameters:
     Type: String
   KubeManifestLambdaArn:
     Type: String
+  KubeGetLambdaArn:
+    Type: String
   KubeConfigPath:
     Type: String
   KubeConfigKmsContext:
@@ -157,6 +159,95 @@ Resources:
   #      HostedZoneId: !GetAtt 'ExternalNlb.CanonicalHostedZoneID'
   #      DNSName: !GetAtt 'ExternalNlb.DNSName'
   #    HostedZoneId: !Ref 'HostedZoneID'
+  Route53Uaa:
+    Type: AWS::Route53::RecordSet
+    Properties:
+      Type: A
+      Name: !Sub 'uaa.${DomainName}'
+      AliasTarget:
+        HostedZoneId: !Ref ElbZoneId
+        DNSName: !Ref UaaElbHostName
+      HostedZoneId: !Ref 'HostedZoneID'
+  UaaElbHostName:
+    DependsOn: Uaa
+    Type: "Custom::KubeGet"
+    Version: '1.0'
+    Properties:
+      ServiceToken: !Ref KubeGetLambdaArn
+      KubeConfigPath: !Ref KubeConfigPath
+      KubeConfigKmsContext: !Ref KubeConfigKmsContext
+      Namespace: uaa
+      Name: 'svc/uaa-uaa-public'
+      JsonPath: '{.status.loadBalancer.ingress[0].hostname}'
+  ElbZoneId:
+    Type: "Custom::GetElbZone"
+    Version: 1.0
+    Properties:
+      ServiceToken: !GetAtt GetElbZoneIdFunction.Arn
+      DnsName: !Ref UaaElbHostName
+  GetElbZoneIdRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: describe-elbs
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: elasticloadbalancing:DescribeLoadBalancers
+                Resource: '*'
+  GetElbZoneIdFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      Description: Copies objects from a source S3 bucket to a destination
+      Handler: index.handler
+      Runtime: python2.7
+      Role: !GetAtt GetElbZoneIdRole.Arn
+      Timeout: 900
+      Code:
+        ZipFile: |
+          import json
+          import logging
+          import threading
+          import boto3
+          import cfnresponse
+          def timeout(event, context):
+              logging.error('Execution is about to time out, sending failure response to CloudFormation')
+              cfnresponse.send(event, context, cfnresponse.FAILED, {}, physical_resource_id)
+          def handler(event, context):
+              physical_resource_id = None
+              # make sure we send a failure to CloudFormation if the function is going to timeout
+              timer = threading.Timer((context.get_remaining_time_in_millis()
+              / 1000.00) - 0.5, timeout, args=[event, context])
+              timer.start()
+              print('Received event: %s' % json.dumps(event))
+              status = cfnresponse.SUCCESS
+              try:
+                  if event['RequestType'] in ['Create', 'Update']:
+                      elb_dns = event['ResourceProperties']['DnsName']
+                      elb_client = boto3.client('elb')
+                      elbs = elb_client.describe_load_balancers()['LoadBalancerDescriptions']
+                      for elb in elbs:
+                          if elb['DNSName'] == elb_dns:
+                              physical_resource_id = elb['CanonicalHostedZoneNameID']
+                              break
+                      if not physical_resource_id:
+                        raise Exception("No ELB found matching dns name %s" % elb_dns)
+              except Exception as e:
+                  logging.error('Exception: %s' % e, exc_info=True)
+                  status = cfnresponse.FAILED
+              finally:
+                  timer.cancel()
+                  cfnresponse.send(event, context, status, {}, physical_resource_id)
   UaaNamespace:
     Type: "Custom::KubeManifest"
     Version: '1.0'
@@ -169,7 +260,7 @@ Resources:
         kind: Namespace
         apiVersion: v1
         metadata:
-          name: cap-uaa
+          name: uaa
   Uaa:
     Type: "Custom::Helm"
     DependsOn: NodeGroupStack
@@ -281,3 +372,4 @@ Resources:
         KubernetesVersion: !Ref KubernetesVersion
         BootstrapArguments: "--kubelet-extra-args --node-labels=nodegroup=CapInfra"
         NodeInstanceRoleName: !Ref NodeInstanceRoleName
+        NodeAMIOS: SUSE-SLES-15-HVM
