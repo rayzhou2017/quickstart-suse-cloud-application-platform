@@ -292,7 +292,7 @@ Resources:
         VPCID: !GetAtt VPCStack.Outputs.VPCID
         KubernetesVersion: !Ref KubernetesVersion
         BastionOS: SUSE-SLES-15-HVM
-        NodeAMIOS: SUSE-SLES-15-HVM
+        NodeAMIOS: Amazon-Linux-HVM
         BootstrapArguments: "--kubelet-extra-args --node-labels=nodegroup=Default"
   CapStack:
     Type: AWS::CloudFormation::Stack
@@ -320,6 +320,7 @@ Resources:
         DomainName: !Ref DomainName
         HostedZoneID: !Ref HostedZoneID
         NodeInstanceRoleName: !GetAtt EKSStack.Outputs.NodeInstanceRoleName
+        NodeGroupSecurityGroup: !GetAtt EKSStack.Outputs.NodeGroupSecurityGroup
   AdminPassword:
     Type: 'AWS::SecretsManager::Secret'
     Properties:

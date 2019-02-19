@@ -140,6 +140,8 @@ Parameters:
     NoEcho: true
   NodeInstanceRoleName:
     Type: String
+  NodeGroupSecurityGroup:
+    Type: String
 Resources:
   #Route53WildCard:
   #  Type: AWS::Route53::RecordSet
@@ -372,4 +374,18 @@ Resources:
         KubernetesVersion: !Ref KubernetesVersion
         BootstrapArguments: "--kubelet-extra-args --node-labels=nodegroup=CapInfra"
         NodeInstanceRoleName: !Ref NodeInstanceRoleName
-        NodeAMIOS: SUSE-SLES-15-HVM
+        NodeAMIOS: Amazon-Linux-HVM
+        QSS3KeyPrefix: !Sub "${QSS3KeyPrefix}submodules/quickstart-amazon-eks/"
+        QSS3BucketName: !Ref QSS3BucketName
+  DefaultNodeSecurityGroupIngress:
+    Type: "AWS::EC2::SecurityGroupIngress"
+    Properties:
+      IpProtocol: "-1"
+      SourceSecurityGroupId: !Ref NodeGroupSecurityGroup
+      GroupId: !GetAtt NodeGroupStack.Outputs.EKSNodeSecurityGroup
+  InfraNodeSecurityGroupIngress:
+    Type: "AWS::EC2::SecurityGroupIngress"
+    Properties:
+      IpProtocol: "-1"
+      SourceSecurityGroupId: !GetAtt NodeGroupStack.Outputs.EKSNodeSecurityGroup
+      GroupId: !Ref NodeGroupSecurityGroup
