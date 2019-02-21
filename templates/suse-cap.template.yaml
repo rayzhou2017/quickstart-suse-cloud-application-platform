@@ -121,7 +121,7 @@ Parameters:
     Description: Name for EKS node group
     Type: String
   NodeVolumeSize:
-    Default: 20
+    Default: 80
     Description: Size for node volumes
     Type: String
   ControlPlaneSecurityGroup:
@@ -141,7 +141,7 @@ Parameters:
   NodeInstanceRoleName:
     Type: String
   NodeGroupSecurityGroup:
-    Type: String
+    Type: AWS::EC2::SecurityGroup::Id
 Resources:
   ScfWildcardDns:
     Type: AWS::Route53::RecordSet

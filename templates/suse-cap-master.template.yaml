@@ -230,7 +230,7 @@ Parameters:
     Description: Name for EKS node group
     Type: String
   NodeVolumeSize:
-    Default: 20
+    Default: 80
     Description: Size for node volumes
     Type: String
   LambdaZipsBucketName:
