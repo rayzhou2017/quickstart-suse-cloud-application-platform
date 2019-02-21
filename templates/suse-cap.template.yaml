@@ -143,31 +143,49 @@ Parameters:
   NodeGroupSecurityGroup:
     Type: String
 Resources:
-  #Route53WildCard:
-  #  Type: AWS::Route53::RecordSet
-  #  Properties:
-  #    Type: A
-  #    Name: !Sub '*.${DomainName}'
-  #    AliasTarget:
-  #      HostedZoneId: !GetAtt 'ExternalNlb.CanonicalHostedZoneID'
-  #      DNSName: !GetAtt 'ExternalNlb.DNSName'
-  #    HostedZoneId: !Ref 'HostedZoneID'
-  #Route53ApexRecord:
-  #  Type: AWS::Route53::RecordSet
-  #  Properties:
-  #    Type: A
-  #    Name: !Ref 'DomainName'
-  #    AliasTarget:
-  #      HostedZoneId: !GetAtt 'ExternalNlb.CanonicalHostedZoneID'
-  #      DNSName: !GetAtt 'ExternalNlb.DNSName'
-  #    HostedZoneId: !Ref 'HostedZoneID'
-  Route53Uaa:
+  ScfWildcardDns:
+    Type: AWS::Route53::RecordSet
+    Properties:
+      Type: A
+      Name: !Sub '*.cf.${DomainName}'
+      AliasTarget:
+        HostedZoneId: !Ref RouterElbZoneId
+        DNSName: !Ref RouterElbHostName
+      HostedZoneId: !Ref 'HostedZoneID'
+  TcpScfDns:
+    Type: AWS::Route53::RecordSet
+    Properties:
+      Type: A
+      Name: !Sub 'tcp.cf.${DomainName}'
+      AliasTarget:
+        HostedZoneId: !Ref TcpRouterElbZoneId
+        DNSName: !Ref TcpRouterElbHostName
+      HostedZoneId: !Ref 'HostedZoneID'
+  SshScfDns:
+    Type: AWS::Route53::RecordSet
+    Properties:
+      Type: A
+      Name: !Sub 'ssh.cf.${DomainName}'
+      AliasTarget:
+        HostedZoneId: !Ref SshElbZoneId
+        DNSName: !Ref SshElbHostName
+      HostedZoneId: !Ref 'HostedZoneID'
+  UaaDns:
     Type: AWS::Route53::RecordSet
     Properties:
       Type: A
       Name: !Sub 'uaa.${DomainName}'
       AliasTarget:
-        HostedZoneId: !Ref ElbZoneId
+        HostedZoneId: !Ref UaaElbZoneId
+        DNSName: !Ref UaaElbHostName
+      HostedZoneId: !Ref 'HostedZoneID'
+  UaaWildcardDns:
+    Type: AWS::Route53::RecordSet
+    Properties:
+      Type: A
+      Name: !Sub '*.uaa.${DomainName}'
+      AliasTarget:
+        HostedZoneId: !Ref UaaElbZoneId
         DNSName: !Ref UaaElbHostName
       HostedZoneId: !Ref 'HostedZoneID'
   UaaElbHostName:
@@ -181,12 +199,63 @@ Resources:
       Namespace: uaa
       Name: 'svc/uaa-uaa-public'
       JsonPath: '{.status.loadBalancer.ingress[0].hostname}'
-  ElbZoneId:
+  RouterElbHostName:
+    DependsOn: Scf
+    Type: "Custom::KubeGet"
+    Version: '1.0'
+    Properties:
+      ServiceToken: !Ref KubeGetLambdaArn
+      KubeConfigPath: !Ref KubeConfigPath
+      KubeConfigKmsContext: !Ref KubeConfigKmsContext
+      Namespace: scf
+      Name: 'svc/router-gorouter-public'
+      JsonPath: '{.status.loadBalancer.ingress[0].hostname}'
+  TcpRouterElbHostName:
+    DependsOn: Scf
+    Type: "Custom::KubeGet"
+    Version: '1.0'
+    Properties:
+      ServiceToken: !Ref KubeGetLambdaArn
+      KubeConfigPath: !Ref KubeConfigPath
+      KubeConfigKmsContext: !Ref KubeConfigKmsContext
+      Namespace: scf
+      Name: 'svc/tcp-router-tcp-router-public'
+      JsonPath: '{.status.loadBalancer.ingress[0].hostname}'
+  SshElbHostName:
+    DependsOn: Scf
+    Type: "Custom::KubeGet"
+    Version: '1.0'
+    Properties:
+      ServiceToken: !Ref KubeGetLambdaArn
+      KubeConfigPath: !Ref KubeConfigPath
+      KubeConfigKmsContext: !Ref KubeConfigKmsContext
+      Namespace: scf
+      Name: 'svc/diego-ssh-ssh-proxy-public'
+      JsonPath: '{.status.loadBalancer.ingress[0].hostname}'
+  UaaElbZoneId:
     Type: "Custom::GetElbZone"
     Version: 1.0
     Properties:
       ServiceToken: !GetAtt GetElbZoneIdFunction.Arn
       DnsName: !Ref UaaElbHostName
+  RouterElbZoneId:
+    Type: "Custom::GetElbZone"
+    Version: 1.0
+    Properties:
+      ServiceToken: !GetAtt GetElbZoneIdFunction.Arn
+      DnsName: !Ref RouterElbHostName
+  TcpRouterElbZoneId:
+    Type: "Custom::GetElbZone"
+    Version: 1.0
+    Properties:
+      ServiceToken: !GetAtt GetElbZoneIdFunction.Arn
+      DnsName: !Ref TcpRouterElbHostName
+  SshElbZoneId:
+    Type: "Custom::GetElbZone"
+    Version: 1.0
+    Properties:
+      ServiceToken: !GetAtt GetElbZoneIdFunction.Arn
+      DnsName: !Ref SshElbHostName
   GetElbZoneIdRole:
     Type: AWS::IAM::Role
     Properties:
@@ -210,7 +279,7 @@ Resources:
   GetElbZoneIdFunction:
     Type: AWS::Lambda::Function
     Properties:
-      Description: Copies objects from a source S3 bucket to a destination
+      Description: Gets the Zone Name ID for a classic loadbalancer
       Handler: index.handler
       Runtime: python2.7
       Role: !GetAtt GetElbZoneIdRole.Arn
@@ -286,6 +355,68 @@ Resources:
           GARDEN_ROOTFS_DRIVER: overlay-xfs
           GARDEN_APPARMOR_PROFILE: ""
         sizing:
+          mysql:
+            affinity:
+              requiredDuringSchedulingIgnoredDuringExecution:
+                nodeSelectorTerms: [matchExpressions: [ {key: nodegroup, operator: In, values: [ CapInfra ] } ]]
+            count: 2
+          secret_generation:
+            affinity:
+              requiredDuringSchedulingIgnoredDuringExecution:
+                nodeSelectorTerms: [matchExpressions: [ {key: nodegroup, operator: In, values: [ CapInfra ] } ]]
+          uaa:
+            affinity:
+              requiredDuringSchedulingIgnoredDuringExecution:
+                nodeSelectorTerms: [matchExpressions: [ {key: nodegroup, operator: In, values: [ CapInfra ] } ]]
+            count: 2
+        services:
+            loadbalanced: true
+        kube:
+          storage_class:
+            persistent: gp2
+            shared: gp2
+        registry:
+          hostname: "registry.suse.com"
+          username: ""
+          password: ""
+          organization: "cap"
+        auth: rbac
+  ScfNamespace:
+    Type: "Custom::KubeManifest"
+    Version: '1.0'
+    DependsOn: NodeGroupStack
+    Properties:
+      ServiceToken: !Ref KubeManifestLambdaArn
+      KubeConfigPath: !Ref KubeConfigPath
+      KubeConfigKmsContext: !Ref KubeConfigKmsContext
+      Manifest:
+        kind: Namespace
+        apiVersion: v1
+        metadata:
+          name: scf
+  Scf:
+    Type: "Custom::Helm"
+    DependsOn: Uaa
+    Version: '1.0'
+    Properties:
+      ServiceToken: !Ref HelmLambdaArn
+      KubeConfigPath: !Ref KubeConfigPath
+      KubeConfigKmsContext: !Ref KubeConfigKmsContext
+      RepoUrl: https://kubernetes-charts.suse.com/
+      Chart: suse/cf
+      Namespace: !GetAtt ScfNamespace.name
+      Async: true
+      Values:
+        env.DOMAIN: !Ref DomainName
+        env.UAA_HOST: !Sub "uaa.${DomainName}"
+        secrets.UAA_ADMIN_CLIENT_SECRET: !Ref UaaPassword
+        secrets.CLUSTER_ADMIN_PASSWORD: !Ref AdminPassword
+      ValueYaml: |
+        env:
+          UAA_PORT: 2793
+          GARDEN_ROOTFS_DRIVER: overlay-xfs
+          GARDEN_APPARMOR_PROFILE: ""
+        sizing:
           cc_uploader:
             capabilities: ["SYS_RESOURCE"]
             affinity:
@@ -337,7 +468,7 @@ Resources:
             affinity:
               requiredDuringSchedulingIgnoredDuringExecution:
                 nodeSelectorTerms: [matchExpressions: [ {key: nodegroup, operator: In, values: [ CapInfra ] } ]]
-          uaa:
+          tcp_router:
             affinity:
               requiredDuringSchedulingIgnoredDuringExecution:
                 nodeSelectorTerms: [matchExpressions: [ {key: nodegroup, operator: In, values: [ CapInfra ] } ]]
