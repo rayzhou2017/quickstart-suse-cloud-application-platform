@@ -256,6 +256,58 @@ Resources:
     Properties:
       ServiceToken: !GetAtt GetElbZoneIdFunction.Arn
       DnsName: !Ref SshElbHostName
+  B64DecodeRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+  B64DecodeFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      Description: decodes a base64 string and returns output
+      Handler: index.handler
+      Runtime: python3.6
+      Role: !GetAtt B64DecodeRole.Arn
+      Timeout: 900
+      Code:
+        ZipFile: |
+          import json
+          import logging
+          import threading
+          import cfnresponse
+          import base64
+          from hashlib import md5
+          def timeout(event, context):
+              logging.error('Execution is about to time out, sending failure response to CloudFormation')
+              cfnresponse.send(event, context, cfnresponse.FAILED, {}, physical_resource_id)
+          def handler(event, context):
+              data = {}
+              physical_resource_id = None
+              # make sure we send a failure to CloudFormation if the function is going to timeout
+              timer = threading.Timer((context.get_remaining_time_in_millis()
+              / 1000.00) - 0.5, timeout, args=[event, context])
+              timer.start()
+              print('Received event: %s' % json.dumps(event))
+              status = cfnresponse.SUCCESS
+              try:
+                  if event['RequestType'] in ['Create', 'Update']:
+                      encoded = event['ResourceProperties']['String']
+                      decoded = base64.b64decode(encoded).decode('utf-8')
+                      physical_resource_id = md5(decoded.encode('utf-8')).hexdigest()
+                      data["Decoded"] = decoded
+              except Exception as e:
+                  logging.error('Exception: %s' % e, exc_info=True)
+                  status = cfnresponse.FAILED
+              finally:
+                  timer.cancel()
+                  cfnresponse.send(event, context, status, data, physical_resource_id)
   GetElbZoneIdRole:
     Type: AWS::IAM::Role
     Properties:
@@ -394,6 +446,36 @@ Resources:
         apiVersion: v1
         metadata:
           name: scf
+  UaaSecretName:
+    DependsOn: Uaa
+    Type: "Custom::KubeGet"
+    Version: '1.0'
+    Properties:
+      ServiceToken: !Ref KubeGetLambdaArn
+      KubeConfigPath: !Ref KubeConfigPath
+      KubeConfigKmsContext: !Ref KubeConfigKmsContext
+      Namespace: uaa
+      Name: 'pod'
+      JsonPath: "{.items[?(.metadata.name=='uaa-0')].spec.containers[?(.name=='uaa')].env[?(.name=='INTERNAL_CA_CERT')].valueFrom.secretKeyRef.name}"
+      Timeout: 600
+  UaaCaCert:
+    Type: "Custom::KubeGet"
+    Version: '1.0'
+    Properties:
+      ServiceToken: !Ref KubeGetLambdaArn
+      KubeConfigPath: !Ref KubeConfigPath
+      KubeConfigKmsContext: !Ref KubeConfigKmsContext
+      Namespace: uaa
+      Name: !Sub 'secret/${UaaSecretName}'
+      JsonPath: "{.data['internal-ca-cert']}"
+      Timeout: 600
+      ResponseKey: CaCert
+  DecodedUaaCaCert:
+    Type: "Custom::B64Decode"
+    Version: '1.0'
+    Properties:
+      ServiceToken: !GetAtt B64DecodeFunction.Arn
+      String: !GetAtt UaaCaCert.CaCert
   Scf:
     Type: "Custom::Helm"
     DependsOn: Uaa
@@ -411,6 +493,7 @@ Resources:
         env.UAA_HOST: !Sub "uaa.${DomainName}"
         secrets.UAA_ADMIN_CLIENT_SECRET: !Ref UaaPassword
         secrets.CLUSTER_ADMIN_PASSWORD: !Ref AdminPassword
+        secrets.UAA_CA_CERT: !Sub "'${DecodedUaaCaCert.Decoded}'"
       ValueYaml: |
         env:
           UAA_PORT: 2793
