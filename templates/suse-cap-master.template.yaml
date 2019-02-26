@@ -248,6 +248,9 @@ Parameters:
   DomainName:
     Description: 'domain name configured for the cluster'
     Type: String
+  SubDomainPrefix:
+    Default: 'scf'
+    Type: String
 Resources:
   VPCStack:
     Type: AWS::CloudFormation::Stack
@@ -294,6 +297,7 @@ Resources:
         BastionOS: SUSE-SLES-15-HVM
         NodeAMIOS: Amazon-Linux-HVM
         BootstrapArguments: "--kubelet-extra-args --node-labels=nodegroup=Default"
+        BastionBootstrapScript: !Sub 'https://${QSS3BucketName}.s3.amazonaws.com/${QSS3KeyPrefix}scripts/bastion_bootstrap.sh'
   CapStack:
     Type: AWS::CloudFormation::Stack
     Properties:
@@ -321,6 +325,7 @@ Resources:
         HostedZoneID: !Ref HostedZoneID
         NodeInstanceRoleName: !GetAtt EKSStack.Outputs.NodeInstanceRoleName
         NodeGroupSecurityGroup: !GetAtt EKSStack.Outputs.NodeGroupSecurityGroup
+        SubDomainPrefix: !Ref SubDomainPrefix
   AdminPassword:
     Type: 'AWS::SecretsManager::Secret'
     Properties:

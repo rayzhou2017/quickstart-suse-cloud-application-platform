@@ -15,10 +15,8 @@ Parameters:
   NodeInstanceProfile:
     Type: String
   HostedZoneID:
-    Description: 'Route 53 Hosted Zone ID to use'
     Type: String
   DomainName:
-    Description: 'domain name configured for the cluster'
     Type: String
   PrivateSubnet1ID:
     Type: String
@@ -32,8 +30,6 @@ Parameters:
     Type: String
     Default: quickstart-suse-cloud-application-platform/
   KeyPairName:
-    Description: The name of an existing public/private key pair, which allows you
-      to securely connect to your instance after it launches
     Type: AWS::EC2::KeyPair::KeyName
   VPCID:
     Type: "AWS::EC2::VPC::Id"
@@ -110,19 +106,15 @@ Parameters:
       - z1d.6xlarge
       - z1d.12xlarge
     ConstraintDescription: Must be a valid EC2 instance type
-    Description: Type of EC2 instance for the Node instances
     Type: String
   NumberOfNodes:
     Default: 3
-    Description: Number of EKS node instances
     Type: Number
   NodeGroupName:
     Default: CAP-Infra
-    Description: Name for EKS node group
     Type: String
   NodeVolumeSize:
     Default: 80
-    Description: Size for node volumes
     Type: String
   ControlPlaneSecurityGroup:
     Type: String
@@ -142,52 +134,147 @@ Parameters:
     Type: String
   NodeGroupSecurityGroup:
     Type: AWS::EC2::SecurityGroup::Id
+  SubDomainPrefix:
+    Default: 'scf'
+    Type: String
+  LambdaZipsBucketName:
+    Default: ""
+    Type: String
+Conditions:
+  CreateLambdaZipsBucket: !Equals
+    - !Ref 'LambdaZipsBucketName'
+    - ''
 Resources:
+  LambdaZipsBucket:
+    Type: AWS::S3::Bucket
+    Condition: CreateLambdaZipsBucket
+  ACMCertificateRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Path: /
+      Policies:
+        - PolicyName: lambda-acm
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - acm:RequestCertificate
+                  - acm:DescribeCertificate
+                  - acm:DeleteCertificate
+                Resource:
+                  - '*'
+              - Effect: Allow
+                Action:
+                  - lambda:InvokeFunction
+                Resource:
+                  - '*'
+              - Effect: Allow
+                Action:
+                  - route53:ChangeResourceRecordSets
+                Resource:
+                  - !Sub 'arn:aws:route53:::hostedzone/${Route53HostedSubdomainZone}'
+              - Effect: Allow
+                Action:
+                  - logs:FilterLogEvents
+                Resource:
+                  - '*'
+  ACMCertificateLambda:
+    Type: AWS::Lambda::Function
+    Properties:
+      Description: Creates and verifies an ACM certificate using DNS validation and
+        route53
+      Handler: lambda_function.handler
+      Runtime: python2.7
+      Role: !GetAtt 'ACMCertificateRole.Arn'
+      Timeout: 300
+      Code:
+        S3Bucket: !If [ CreateLambdaZipsBucket, !Ref LambdaZipsBucket, !Ref LambdaZipsBucketName ]
+        S3Key: !Sub '${QSS3KeyPrefix}functions/packages/ACMCert/lambda.zip'
+  ACMCertificateDNS:
+    Type: Custom::ACMCert
+    Properties:
+      ServiceToken: !GetAtt 'ACMCertificateLambda.Arn'
+      HostedZoneId: !Ref 'Route53HostedSubdomainZone'
+      HostNames:
+        - !Sub '${SubDomainPrefix}.${DomainName}'
+        - !Sub '*.${SubDomainPrefix}.${DomainName}'
+        - !Sub '*.uaa.${SubDomainPrefix}.${DomainName}'
+  Route53HostedSubdomainZone:
+    Type: AWS::Route53::HostedZone
+    Properties:
+      Name: !Sub '${SubDomainPrefix}.${DomainName}'
+  Route53SubdomainNS:
+    Type: AWS::Route53::RecordSet
+    Properties:
+      HostedZoneId: !Ref 'HostedZoneID'
+      Name: !Sub '${SubDomainPrefix}.${DomainName}'
+      ResourceRecords: !GetAtt 'Route53HostedSubdomainZone.NameServers'
+      Type: NS
+      TTL: '600'
   ScfWildcardDns:
     Type: AWS::Route53::RecordSet
     Properties:
       Type: A
-      Name: !Sub '*.cf.${DomainName}'
+      Name: !Sub '*.${SubDomainPrefix}.${DomainName}'
       AliasTarget:
         HostedZoneId: !Ref RouterElbZoneId
         DNSName: !Ref RouterElbHostName
-      HostedZoneId: !Ref 'HostedZoneID'
+      HostedZoneId: !Ref 'Route53HostedSubdomainZone'
   TcpScfDns:
     Type: AWS::Route53::RecordSet
     Properties:
       Type: A
-      Name: !Sub 'tcp.cf.${DomainName}'
+      Name: !Sub 'tcp.${SubDomainPrefix}.${DomainName}'
       AliasTarget:
         HostedZoneId: !Ref TcpRouterElbZoneId
         DNSName: !Ref TcpRouterElbHostName
-      HostedZoneId: !Ref 'HostedZoneID'
+      HostedZoneId: !Ref 'Route53HostedSubdomainZone'
   SshScfDns:
     Type: AWS::Route53::RecordSet
     Properties:
       Type: A
-      Name: !Sub 'ssh.cf.${DomainName}'
+      Name: !Sub 'ssh.${SubDomainPrefix}.${DomainName}'
       AliasTarget:
         HostedZoneId: !Ref SshElbZoneId
         DNSName: !Ref SshElbHostName
-      HostedZoneId: !Ref 'HostedZoneID'
+      HostedZoneId: !Ref 'Route53HostedSubdomainZone'
   UaaDns:
     Type: AWS::Route53::RecordSet
     Properties:
       Type: A
-      Name: !Sub 'uaa.${DomainName}'
+      Name: !Sub 'uaa.${SubDomainPrefix}.${DomainName}'
       AliasTarget:
         HostedZoneId: !Ref UaaElbZoneId
         DNSName: !Ref UaaElbHostName
-      HostedZoneId: !Ref 'HostedZoneID'
+      HostedZoneId: !Ref 'Route53HostedSubdomainZone'
   UaaWildcardDns:
     Type: AWS::Route53::RecordSet
     Properties:
       Type: A
-      Name: !Sub '*.uaa.${DomainName}'
+      Name: !Sub '*.uaa.${SubDomainPrefix}.${DomainName}'
       AliasTarget:
         HostedZoneId: !Ref UaaElbZoneId
         DNSName: !Ref UaaElbHostName
-      HostedZoneId: !Ref 'HostedZoneID'
+      HostedZoneId: !Ref 'Route53HostedSubdomainZone'
+  ConsoleDns:
+    Type: AWS::Route53::RecordSet
+    Properties:
+      Type: A
+      Name: !Sub '${SubDomainPrefix}.${DomainName}'
+      AliasTarget:
+        HostedZoneId: !Ref ConsoleElbZoneId
+        DNSName: !Ref ConsoleElbHostName
+      HostedZoneId: !Ref 'Route53HostedSubdomainZone'
   UaaElbHostName:
     DependsOn: Uaa
     Type: "Custom::KubeGet"
@@ -198,6 +285,16 @@ Resources:
       KubeConfigKmsContext: !Ref KubeConfigKmsContext
       Namespace: uaa
       Name: 'svc/uaa-uaa-public'
+      JsonPath: '{.status.loadBalancer.ingress[0].hostname}'
+  ConsoleElbHostName:
+    Type: "Custom::KubeGet"
+    Version: '1.0'
+    Properties:
+      ServiceToken: !Ref KubeGetLambdaArn
+      KubeConfigPath: !Ref KubeConfigPath
+      KubeConfigKmsContext: !Ref KubeConfigKmsContext
+      Namespace: stratos
+      Name: !Sub 'svc/${StratosConsole}-ui-ext'
       JsonPath: '{.status.loadBalancer.ingress[0].hostname}'
   RouterElbHostName:
     DependsOn: Scf
@@ -256,6 +353,12 @@ Resources:
     Properties:
       ServiceToken: !GetAtt GetElbZoneIdFunction.Arn
       DnsName: !Ref SshElbHostName
+  ConsoleElbZoneId:
+    Type: "Custom::GetElbZone"
+    Version: 1.0
+    Properties:
+      ServiceToken: !GetAtt GetElbZoneIdFunction.Arn
+      DnsName: !Ref ConsoleElbHostName
   B64DecodeRole:
     Type: AWS::IAM::Role
     Properties:
@@ -397,8 +500,8 @@ Resources:
       Namespace: !GetAtt UaaNamespace.name
       Async: true
       Values:
-        env.DOMAIN: !Ref DomainName
-        env.UAA_HOST: !Sub "uaa.${DomainName}"
+        env.DOMAIN: !Sub '${SubDomainPrefix}.${DomainName}'
+        env.UAA_HOST: !Sub "uaa.${SubDomainPrefix}.${DomainName}"
         secrets.UAA_ADMIN_CLIENT_SECRET: !Ref UaaPassword
         secrets.CLUSTER_ADMIN_PASSWORD: !Ref AdminPassword
       ValueYaml: |
@@ -489,8 +592,8 @@ Resources:
       Namespace: !GetAtt ScfNamespace.name
       Async: true
       Values:
-        env.DOMAIN: !Ref DomainName
-        env.UAA_HOST: !Sub "uaa.${DomainName}"
+        env.DOMAIN: !Sub '${SubDomainPrefix}.${DomainName}'
+        env.UAA_HOST: !Sub "uaa.${SubDomainPrefix}.${DomainName}"
         secrets.UAA_ADMIN_CLIENT_SECRET: !Ref UaaPassword
         secrets.CLUSTER_ADMIN_PASSWORD: !Ref AdminPassword
         secrets.UAA_CA_CERT: !Sub "'${DecodedUaaCaCert.Decoded}'"
@@ -568,6 +671,47 @@ Resources:
           password: ""
           organization: "cap"
         auth: rbac
+  StratosConsoleNamespace:
+    Type: "Custom::KubeManifest"
+    Version: '1.0'
+    DependsOn: NodeGroupStack
+    Properties:
+      ServiceToken: !Ref KubeManifestLambdaArn
+      KubeConfigPath: !Ref KubeConfigPath
+      KubeConfigKmsContext: !Ref KubeConfigKmsContext
+      Manifest:
+        kind: Namespace
+        apiVersion: v1
+        metadata:
+          name: stratos
+  StratosConsole:
+    Type: "Custom::Helm"
+    DependsOn: Uaa
+    Version: '1.0'
+    Properties:
+      ServiceToken: !Ref HelmLambdaArn
+      KubeConfigPath: !Ref KubeConfigPath
+      KubeConfigKmsContext: !Ref KubeConfigKmsContext
+      RepoUrl: https://kubernetes-charts.suse.com/
+      Chart: suse/console
+      Namespace: !GetAtt StratosConsoleNamespace.name
+      Async: true
+      Values:
+        env.DOMAIN: !Sub '${SubDomainPrefix}.${DomainName}'
+        env.UAA_HOST: !Sub "uaa.${SubDomainPrefix}.${DomainName}"
+      ValueYaml: |
+        storageClass: gp2
+        env:
+          UAA_PORT: 2793
+        kube:
+          external_console_https_port: 443
+          storage_class:
+            persistent: gp2
+          organization: cap
+        services:
+          loadbalanced: true
+        metrics:
+          enabled: true
   NodeGroupStack:
     Type: "AWS::CloudFormation::Stack"
     Properties:
@@ -603,3 +747,99 @@ Resources:
       IpProtocol: "-1"
       SourceSecurityGroupId: !GetAtt NodeGroupStack.Outputs.EKSNodeSecurityGroup
       GroupId: !Ref NodeGroupSecurityGroup
+  CopyZipsRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: lambda-copier
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: s3:GetObject
+                Resource: !Sub 'arn:aws:s3:::${QSS3BucketName}/${QSS3KeyPrefix}*'
+              - Effect: Allow
+                Action:
+                  - s3:PutObject
+                  - s3:DeleteObject
+                Resource: !Sub
+                  - 'arn:aws:s3:::${DestBucket}/${QSS3KeyPrefix}*'
+                  - DestBucket: !If [ CreateLambdaZipsBucket, !Ref LambdaZipsBucket, !Ref LambdaZipsBucketName ]
+  CopyZipsFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      Description: Copies objects from a source S3 bucket to a destination
+      Handler: index.handler
+      Runtime: python2.7
+      Role: !GetAtt CopyZipsRole.Arn
+      Timeout: 900
+      Code:
+        ZipFile: |
+          import json
+          import logging
+          import threading
+          import boto3
+          import cfnresponse
+          def copy_objects(source_bucket, dest_bucket, prefix, objects):
+              s3 = boto3.client('s3')
+              for o in objects:
+                  key = prefix + o
+                  copy_source = {
+                      'Bucket': source_bucket,
+                      'Key': key
+                  }
+                  print('copy_source: %s' % copy_source)
+                  print('dest_bucket = %s'%dest_bucket)
+                  print('key = %s' %key)
+                  s3.copy_object(CopySource=copy_source, Bucket=dest_bucket,
+              Key=key)
+          def delete_objects(bucket, prefix, objects):
+              s3 = boto3.client('s3')
+              objects = {'Objects': [{'Key': prefix + o} for o in objects]}
+              s3.delete_objects(Bucket=bucket, Delete=objects)
+          def timeout(event, context):
+              logging.error('Execution is about to time out, sending failure response to CloudFormation')
+              cfnresponse.send(event, context, cfnresponse.FAILED, {}, physical_resource_id)
+          def handler(event, context):
+              physical_resource_id = None
+              if "PhysicalResourceId" in event.keys():
+                physical_resource_id = event["PhysicalResourceId"]
+              # make sure we send a failure to CloudFormation if the function is going to timeout
+              timer = threading.Timer((context.get_remaining_time_in_millis()
+              / 1000.00) - 0.5, timeout, args=[event, context])
+              timer.start()
+              print('Received event: %s' % json.dumps(event))
+              status = cfnresponse.SUCCESS
+              try:
+                  source_bucket = event['ResourceProperties']['SourceBucket']
+                  dest_bucket = event['ResourceProperties']['DestBucket']
+                  prefix = event['ResourceProperties']['Prefix']
+                  objects = event['ResourceProperties']['Objects']
+                  if event['RequestType'] == 'Delete':
+                      delete_objects(dest_bucket, prefix, objects)
+                  else:
+                      copy_objects(source_bucket, dest_bucket, prefix, objects)
+              except Exception as e:
+                  logging.error('Exception: %s' % e, exc_info=True)
+                  status = cfnresponse.FAILED
+              finally:
+                  timer.cancel()
+                  cfnresponse.send(event, context, status, {}, physical_resource_id)
+  CopyZips:
+    Type: Custom::CopyZips
+    Properties:
+      ServiceToken: !GetAtt 'CopyZipsFunction.Arn'
+      DestBucket: !If [ CreateLambdaZipsBucket, !Ref LambdaZipsBucket, !Ref LambdaZipsBucketName ]
+      SourceBucket: !Ref 'QSS3BucketName'
+      Prefix: !Ref 'QSS3KeyPrefix'
+      Objects:
+        - functions/packages/ACMCert/lambda.zip
