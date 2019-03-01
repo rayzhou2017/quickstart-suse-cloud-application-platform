@@ -36,7 +36,7 @@ def handler(event, context):
                     IdempotencyToken=token
                 )['CertificateArn']
             physical_resource_id = arn
-            logging.info("certificate arn: %s" % arn)
+            print("certificate arn: %s" % arn)
             rs = {}
             while True:
                 try:
@@ -48,7 +48,7 @@ def handler(event, context):
                         print('waiting for ResourceRecord to be available')
                         time.sleep(15)
                     else:
-                        logging.error('timed out waiting for ResourceRecord')
+                        print('timed out waiting for ResourceRecord')
                         status = cfnresponse.FAILED
                     time.sleep(15)
             rs = [{'Action': 'CREATE', 'ResourceRecordSet': {'Name': r, 'Type': 'CNAME', 'TTL': 600,'ResourceRecords': [{'Value': rs[r]}]}} for r in rs.keys()]
@@ -62,36 +62,38 @@ def handler(event, context):
                 if (context.get_remaining_time_in_millis() / 1000.00) > 20.0:
                     time.sleep(15)
                 else:
-                    logging.error('validation timed out')
+                    print('validation timed out')
                     status = cfnresponse.FAILED
             for r in [v for v in acm_client.describe_certificate(CertificateArn=arn)['Certificate']['DomainValidationOptions']]:
                 if r['ValidationStatus'] != 'SUCCESS':
-                    logging.debug(r)
+                    print(r)
                     status = cfnresponse.FAILED
                     reason = 'One or more domains failed to validate'
-                    logging.error(reason)
+                    print(reason)
             data['Arn'] = arn
             # delay as long as possible to give the cert a chance to propogate
             while context.get_remaining_time_in_millis() / 1000.00 > 10.0:
                 time.sleep(5)
         elif event['RequestType'] == 'Update':
             reason = 'Exception: Stack updates are not supported'
-            logging.error(reason)
+            print(reason)
             status = cfnresponse.FAILED
             physical_resource_id = event['PhysicalResourceId']
         elif event['RequestType'] == 'Delete':
             physical_resource_id=event['PhysicalResourceId']
             if not re.match(r'arn:[\w+=/,.@-]+:[\w+=/,.@-]+:[\w+=/,.@-]*:[0-9]+:[\w+=,.@-]+(/[\w+=,.@-]+)*', physical_resource_id):
-                logging.info("PhysicalId is not an acm arn, assuming creation never happened and skipping delete")
+                print("PhysicalId is not an acm arn, assuming creation never happened and skipping delete")
             else:
                 rs={}
                 for d in acm_client.describe_certificate(CertificateArn=physical_resource_id)['Certificate']['DomainValidationOptions']:
                     rs[d['ResourceRecord']['Name']] = d['ResourceRecord']['Value']
+                print(rs)
                 rs = [{'Action': 'DELETE', 'ResourceRecordSet': {'Name': r, 'Type': 'CNAME', 'TTL': 600,'ResourceRecords': [{'Value': rs[r]}]}} for r in rs.keys()]
                 try:
                     r53_client.change_resource_record_sets(HostedZoneId=event['ResourceProperties']['HostedZoneId'], ChangeBatch={'Changes': rs})
                 except r53_client.exceptions.InvalidChangeBatch as e:
-                    pass
+                    print("failed to remove DNS records")
+                    print(e)
                 time.sleep(30)
                 try:
                     acm_client.delete_certificate(CertificateArn=physical_resource_id)

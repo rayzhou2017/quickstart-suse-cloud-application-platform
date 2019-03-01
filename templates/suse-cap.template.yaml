@@ -140,10 +140,53 @@ Parameters:
   LambdaZipsBucketName:
     Default: ""
     Type: String
+  UaaMysqlReplicas:
+    Default: 2
+    Type: Number
+  UaaReplicas:
+    Default: 2
+    Type: Number
+  TcpRouterReplicas:
+    Default: 2
+    Type: Number
+  ScfMysqlReplicas:
+    Default: 2
+    Type: Number
+  RoutingApiReplicas:
+    Default: 2
+    Type: Number
+  RouterReplicas:
+    Default: 2
+    Type: Number
+  NatsReplicas:
+    Default: 2
+    Type: Number
+  DiegoSshReplicas:
+    Default: 2
+    Type: Number
+  DiegoBrainReplicas:
+    Default: 2
+    Type: Number
+  DiegoApiReplicas:
+    Default: 2
+    Type: Number
+  CcUploaderReplicas:
+    Default: 2
+    Type: Number
+  DiegoCellReplicas:
+    Default: 3
+    Type: Number
+  ChartVersion:
+    Type: String
+  ConsoleChartVersion:
+    Type: String
+  StratosWebConsole:
+    Type: String
+    AllowedValues: ["Enabled", "Disabled"]
+    Default: "Disabled"
 Conditions:
-  CreateLambdaZipsBucket: !Equals
-    - !Ref 'LambdaZipsBucketName'
-    - ''
+  CreateLambdaZipsBucket: !Equals [!Ref 'LambdaZipsBucketName', '']
+  EnableConsole: !Equals [!Ref StratosWebConsole, 'Enabled']
 Resources:
   LambdaZipsBucket:
     Type: AWS::S3::Bucket
@@ -191,8 +234,7 @@ Resources:
   ACMCertificateLambda:
     Type: AWS::Lambda::Function
     Properties:
-      Description: Creates and verifies an ACM certificate using DNS validation and
-        route53
+      Description: Creates and verifies an ACM certificate using DNS validation and route53
       Handler: lambda_function.handler
       Runtime: python2.7
       Role: !GetAtt 'ACMCertificateRole.Arn'
@@ -267,6 +309,8 @@ Resources:
         DNSName: !Ref UaaElbHostName
       HostedZoneId: !Ref 'Route53HostedSubdomainZone'
   ConsoleDns:
+    Condition: EnableConsole
+    DependsOn: Scf
     Type: AWS::Route53::RecordSet
     Properties:
       Type: A
@@ -287,6 +331,8 @@ Resources:
       Name: 'svc/uaa-uaa-public'
       JsonPath: '{.status.loadBalancer.ingress[0].hostname}'
   ConsoleElbHostName:
+    Condition: EnableConsole
+    DependsOn: StratosConsole
     Type: "Custom::KubeGet"
     Version: '1.0'
     Properties:
@@ -354,6 +400,7 @@ Resources:
       ServiceToken: !GetAtt GetElbZoneIdFunction.Arn
       DnsName: !Ref SshElbHostName
   ConsoleElbZoneId:
+    Condition: EnableConsole
     Type: "Custom::GetElbZone"
     Version: 1.0
     Properties:
@@ -498,13 +545,13 @@ Resources:
       RepoUrl: https://kubernetes-charts.suse.com/
       Chart: suse/uaa
       Namespace: !GetAtt UaaNamespace.name
-      Async: true
+      Version: !Ref ChartVersion
       Values:
         env.DOMAIN: !Sub '${SubDomainPrefix}.${DomainName}'
         env.UAA_HOST: !Sub "uaa.${SubDomainPrefix}.${DomainName}"
         secrets.UAA_ADMIN_CLIENT_SECRET: !Ref UaaPassword
         secrets.CLUSTER_ADMIN_PASSWORD: !Ref AdminPassword
-      ValueYaml: |
+      ValueYaml: !Sub |
         env:
           UAA_PORT: 2793
           GARDEN_ROOTFS_DRIVER: overlay-xfs
@@ -514,7 +561,7 @@ Resources:
             affinity:
               requiredDuringSchedulingIgnoredDuringExecution:
                 nodeSelectorTerms: [matchExpressions: [ {key: nodegroup, operator: In, values: [ CapInfra ] } ]]
-            count: 2
+            count: ${UaaMysqlReplicas}
           secret_generation:
             affinity:
               requiredDuringSchedulingIgnoredDuringExecution:
@@ -523,7 +570,7 @@ Resources:
             affinity:
               requiredDuringSchedulingIgnoredDuringExecution:
                 nodeSelectorTerms: [matchExpressions: [ {key: nodegroup, operator: In, values: [ CapInfra ] } ]]
-            count: 2
+            count: ${UaaReplicas}
         services:
             loadbalanced: true
         kube:
@@ -590,66 +637,70 @@ Resources:
       RepoUrl: https://kubernetes-charts.suse.com/
       Chart: suse/cf
       Namespace: !GetAtt ScfNamespace.name
-      Async: true
+      Version: !Ref ChartVersion
       Values:
         env.DOMAIN: !Sub '${SubDomainPrefix}.${DomainName}'
         env.UAA_HOST: !Sub "uaa.${SubDomainPrefix}.${DomainName}"
         secrets.UAA_ADMIN_CLIENT_SECRET: !Ref UaaPassword
         secrets.CLUSTER_ADMIN_PASSWORD: !Ref AdminPassword
         secrets.UAA_CA_CERT: !Sub "'${DecodedUaaCaCert.Decoded}'"
-      ValueYaml: |
+      ValueYaml: !Sub |
         env:
           UAA_PORT: 2793
           GARDEN_ROOTFS_DRIVER: overlay-xfs
           GARDEN_APPARMOR_PROFILE: ""
         sizing:
+          diego_cell:
+            requiredDuringSchedulingIgnoredDuringExecution:
+              nodeSelectorTerms: [matchExpressions: [ {key: nodegroup, operator: In, values: [ Default ] } ]]
+              count: ${DiegoCellReplicas}
           cc_uploader:
             capabilities: ["SYS_RESOURCE"]
             affinity:
               requiredDuringSchedulingIgnoredDuringExecution:
                 nodeSelectorTerms: [matchExpressions: [ {key: nodegroup, operator: In, values: [ CapInfra ] } ]]
-            count: 2
+            count: ${CcUploaderReplicas}
           diego_api:
             capabilities: ["SYS_RESOURCE"]
             affinity:
               requiredDuringSchedulingIgnoredDuringExecution:
                 nodeSelectorTerms: [matchExpressions: [ {key: nodegroup, operator: In, values: [ CapInfra ] } ]]
-            count: 2
+            count: ${DiegoApiReplicas}
           diego_brain:
             capabilities: ["SYS_RESOURCE"]
             affinity:
               requiredDuringSchedulingIgnoredDuringExecution:
                 nodeSelectorTerms: [matchExpressions: [ {key: nodegroup, operator: In, values: [ CapInfra ] } ]]
-            count: 2
+            count: ${DiegoBrainReplicas}
           diego_ssh:
             capabilities: ["SYS_RESOURCE"]
             affinity:
               requiredDuringSchedulingIgnoredDuringExecution:
                 nodeSelectorTerms: [matchExpressions: [ {key: nodegroup, operator: In, values: [ CapInfra ] } ]]
-            count: 2
+            count: ${DiegoSshReplicas}
           nats:
             capabilities: ["SYS_RESOURCE"]
             affinity:
               requiredDuringSchedulingIgnoredDuringExecution:
                 nodeSelectorTerms: [matchExpressions: [ {key: nodegroup, operator: In, values: [ CapInfra ] } ]]
-            count: 2
+            count: ${NatsReplicas}
           router:
             capabilities: ["SYS_RESOURCE"]
             affinity:
               requiredDuringSchedulingIgnoredDuringExecution:
                 nodeSelectorTerms: [matchExpressions: [ {key: nodegroup, operator: In, values: [ CapInfra ] } ]]
-            count: 2
+            count: ${RouterReplicas}
           routing_api:
             capabilities: ["SYS_RESOURCE"]
             affinity:
               requiredDuringSchedulingIgnoredDuringExecution:
                 nodeSelectorTerms: [matchExpressions: [ {key: nodegroup, operator: In, values: [ CapInfra ] } ]]
-            count: 2
+            count: ${RoutingApiReplicas}
           mysql:
             affinity:
               requiredDuringSchedulingIgnoredDuringExecution:
                 nodeSelectorTerms: [matchExpressions: [ {key: nodegroup, operator: In, values: [ CapInfra ] } ]]
-            count: 2
+            count: ${ScfMysqlReplicas}
           secret_generation:
             affinity:
               requiredDuringSchedulingIgnoredDuringExecution:
@@ -658,7 +709,7 @@ Resources:
             affinity:
               requiredDuringSchedulingIgnoredDuringExecution:
                 nodeSelectorTerms: [matchExpressions: [ {key: nodegroup, operator: In, values: [ CapInfra ] } ]]
-            count: 2
+            count: ${TcpRouterReplicas}
         services:
             loadbalanced: true
         kube:
@@ -672,6 +723,7 @@ Resources:
           organization: "cap"
         auth: rbac
   StratosConsoleNamespace:
+    Condition: EnableConsole
     Type: "Custom::KubeManifest"
     Version: '1.0'
     DependsOn: NodeGroupStack
@@ -685,8 +737,9 @@ Resources:
         metadata:
           name: stratos
   StratosConsole:
+    Condition: EnableConsole
     Type: "Custom::Helm"
-    DependsOn: Uaa
+    DependsOn: Scf
     Version: '1.0'
     Properties:
       ServiceToken: !Ref HelmLambdaArn
@@ -695,7 +748,7 @@ Resources:
       RepoUrl: https://kubernetes-charts.suse.com/
       Chart: suse/console
       Namespace: !GetAtt StratosConsoleNamespace.name
-      Async: true
+      Version: !Ref ConsoleChartVersion
       Values:
         env.DOMAIN: !Sub '${SubDomainPrefix}.${DomainName}'
         env.UAA_HOST: !Sub "uaa.${SubDomainPrefix}.${DomainName}"
@@ -843,3 +896,10 @@ Resources:
       Prefix: !Ref 'QSS3KeyPrefix'
       Objects:
         - functions/packages/ACMCert/lambda.zip
+Outputs:
+  UaaEndpoint:
+    Value: !Sub 'https://uaa.${SubDomainPrefix}.${DomainName}:2793'
+  CfApiEndpoint:
+    Value: !Sub 'https://api.${SubDomainPrefix}.${DomainName}'
+  StratosConsoleEndpoint:
+    Value: !If [EnableConsole, !Sub 'https://${SubDomainPrefix}.${DomainName}', '']
