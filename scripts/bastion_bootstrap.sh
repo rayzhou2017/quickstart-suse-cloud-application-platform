@@ -446,12 +446,13 @@ exit ${EXIT_CODE}
 EOF
     chmod +x /usr/local/bin/helm
     su ec2-user -c "/usr/local/bin/helm init --client-only"
+    su ec2-user -c "/usr/local/bin/helm repo add suse https://kubernetes-charts.suse.com"
 }
 
 function install_cf_cli() {
     orig_dir=$(pwd)
     cd /tmp/
-    retry_command 20 curl --retry 5 -o cf.tar.gz "https://packages.cloudfoundry.org/stable?release=linux64-binary&source=github"
+    retry_command 20 curl -L --retry 5 -o cf.tar.gz "https://packages.cloudfoundry.org/stable?release=linux64-binary"
     tar -xvf cf.tar.gz
     mv ./cf /usr/local/bin/
     rm cf.tar.gz
@@ -564,5 +565,6 @@ request_eip
 install_kubernetes_client_tools
 setup_kubeconfig
 install_cf_cli
+
 
 echo "Bootstrap complete."
