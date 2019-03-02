@@ -427,9 +427,9 @@ Outputs:
   UaaEndpoint:
     Value: !GetAtt CapStack.Outputs.UaaEndpoint
   CfApiEndpoint:
-    Value: CapStack.Outputs.CfApiEndpoint
+    Value: !GetAtt CapStack.Outputs.CfApiEndpoint
   StratosConsoleEndpoint:
-    Value: CapStack.Outputs.StratosConsoleEndpoint
+    Value: !GetAtt CapStack.Outputs.StratosConsoleEndpoint
   AdminPassword:
     Value: !Ref AdminPassword
   UaaPassword:
