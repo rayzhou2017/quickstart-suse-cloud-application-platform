@@ -176,17 +176,35 @@ Parameters:
   DiegoCellReplicas:
     Default: 3
     Type: Number
-  ChartVersion:
-    Type: String
+  AdapterReplicas:
+    Default: 2
+    Type: Number
+  ApiGroupReplicas:
+    Default: 2
+    Type: Number
+  CcClockReplicas:
+    Default: 2
+    Type: Number
+  CcWorkerReplicas:
+    Default: 2
+    Type: Number
+  CfUsbReplicas:
+    Default: 2
+    Type: Number
   ConsoleChartVersion:
     Type: String
   StratosWebConsole:
     Type: String
     AllowedValues: ["Enabled", "Disabled"]
     Default: "Disabled"
+  RemoteAccessCIDRs:
+    Type: CommaDelimitedList
+  BastionSecurityGroupID:
+    Type: AWS::EC2::SecurityGroup::Id
 Conditions:
   CreateLambdaZipsBucket: !Equals [!Ref 'LambdaZipsBucketName', '']
   EnableConsole: !Equals [!Ref StratosWebConsole, 'Enabled']
+  IsHA: !Not [!Equals [!Ref NumberOfNodes, 1]]
 Resources:
   LambdaZipsBucket:
     Type: AWS::S3::Bucket
@@ -542,47 +560,53 @@ Resources:
       ServiceToken: !Ref HelmLambdaArn
       KubeConfigPath: !Ref KubeConfigPath
       KubeConfigKmsContext: !Ref KubeConfigKmsContext
-      RepoUrl: https://kubernetes-charts.suse.com/
-      Chart: suse/uaa
+      ChartBucket: !Ref QSS3BucketName
+      ChartKey: !Sub '${QSS3KeyPrefix}charts/uaa.tgz'
       Namespace: !GetAtt UaaNamespace.name
-      Version: !Ref ChartVersion
       Values:
         env.DOMAIN: !Sub '${SubDomainPrefix}.${DomainName}'
         env.UAA_HOST: !Sub "uaa.${SubDomainPrefix}.${DomainName}"
         secrets.UAA_ADMIN_CLIENT_SECRET: !Ref UaaPassword
         secrets.CLUSTER_ADMIN_PASSWORD: !Ref AdminPassword
-      ValueYaml: !Sub |
-        env:
-          UAA_PORT: 2793
-          GARDEN_ROOTFS_DRIVER: overlay-xfs
-          GARDEN_APPARMOR_PROFILE: ""
-        sizing:
-          mysql:
-            affinity:
-              requiredDuringSchedulingIgnoredDuringExecution:
-                nodeSelectorTerms: [matchExpressions: [ {key: nodegroup, operator: In, values: [ CapInfra ] } ]]
-            count: ${UaaMysqlReplicas}
-          secret_generation:
-            affinity:
-              requiredDuringSchedulingIgnoredDuringExecution:
-                nodeSelectorTerms: [matchExpressions: [ {key: nodegroup, operator: In, values: [ CapInfra ] } ]]
-          uaa:
-            affinity:
-              requiredDuringSchedulingIgnoredDuringExecution:
-                nodeSelectorTerms: [matchExpressions: [ {key: nodegroup, operator: In, values: [ CapInfra ] } ]]
-            count: ${UaaReplicas}
-        services:
+        services.acmArn: !GetAtt ACMCertificateDNS.Arn
+      ValueYaml: !Sub
+        - |
+          config:
+            HA: ${HA}
+          env:
+            UAA_PORT: 2793
+            GARDEN_ROOTFS_DRIVER: overlay-xfs
+            GARDEN_APPARMOR_PROFILE: ""
+          sizing:
+            mysql:
+              affinity:
+                requiredDuringSchedulingIgnoredDuringExecution:
+                  nodeSelectorTerms: [matchExpressions: [ {key: nodegroup, operator: In, values: [ CapInfra ] } ]]
+              count: ${UaaMysqlReplicas}
+            secret_generation:
+              affinity:
+                requiredDuringSchedulingIgnoredDuringExecution:
+                  nodeSelectorTerms: [matchExpressions: [ {key: nodegroup, operator: In, values: [ CapInfra ] } ]]
+            uaa:
+              affinity:
+                requiredDuringSchedulingIgnoredDuringExecution:
+                  nodeSelectorTerms: [matchExpressions: [ {key: nodegroup, operator: In, values: [ CapInfra ] } ]]
+              count: ${UaaReplicas}
+          services:
             loadbalanced: true
-        kube:
-          storage_class:
-            persistent: gp2
-            shared: gp2
-        registry:
-          hostname: "registry.suse.com"
-          username: ""
-          password: ""
-          organization: "cap"
-        auth: rbac
+            remoteAccessCidr: [${IngressIPs}]
+          kube:
+            storage_class:
+              persistent: gp2
+              shared: gp2
+          registry:
+            hostname: "registry.suse.com"
+            username: ""
+            password: ""
+            organization: "cap"
+          auth: rbac
+        - IngressIPs: !Join [",", !Ref RemoteAccessCIDRs]
+          HA: !If [ IsHA, true, false ]
   ScfNamespace:
     Type: "Custom::KubeManifest"
     Version: '1.0'
@@ -634,94 +658,124 @@ Resources:
       ServiceToken: !Ref HelmLambdaArn
       KubeConfigPath: !Ref KubeConfigPath
       KubeConfigKmsContext: !Ref KubeConfigKmsContext
-      RepoUrl: https://kubernetes-charts.suse.com/
-      Chart: suse/cf
+      ChartBucket: !Ref QSS3BucketName
+      ChartKey: !Sub '${QSS3KeyPrefix}charts/cf.tgz'
       Namespace: !GetAtt ScfNamespace.name
-      Version: !Ref ChartVersion
       Values:
         env.DOMAIN: !Sub '${SubDomainPrefix}.${DomainName}'
         env.UAA_HOST: !Sub "uaa.${SubDomainPrefix}.${DomainName}"
         secrets.UAA_ADMIN_CLIENT_SECRET: !Ref UaaPassword
         secrets.CLUSTER_ADMIN_PASSWORD: !Ref AdminPassword
         secrets.UAA_CA_CERT: !Sub "'${DecodedUaaCaCert.Decoded}'"
-      ValueYaml: !Sub |
-        env:
-          UAA_PORT: 2793
-          GARDEN_ROOTFS_DRIVER: overlay-xfs
-          GARDEN_APPARMOR_PROFILE: ""
-        sizing:
-          diego_cell:
-            requiredDuringSchedulingIgnoredDuringExecution:
-              nodeSelectorTerms: [matchExpressions: [ {key: nodegroup, operator: In, values: [ Default ] } ]]
-              count: ${DiegoCellReplicas}
-          cc_uploader:
-            capabilities: ["SYS_RESOURCE"]
-            affinity:
+        services.acmArn: !GetAtt ACMCertificateDNS.Arn
+      ValueYaml: !Sub
+        - |
+          config:
+            HA: ${HA}
+          env:
+            UAA_PORT: 2793
+            GARDEN_ROOTFS_DRIVER: overlay-xfs
+            GARDEN_APPARMOR_PROFILE: ""
+          sizing:
+            adapter:
               requiredDuringSchedulingIgnoredDuringExecution:
-                nodeSelectorTerms: [matchExpressions: [ {key: nodegroup, operator: In, values: [ CapInfra ] } ]]
-            count: ${CcUploaderReplicas}
-          diego_api:
-            capabilities: ["SYS_RESOURCE"]
-            affinity:
+                nodeSelectorTerms: [matchExpressions: [ {key: nodegroup, operator: In, values: [ Default ] } ]]
+              count: ${AdapterReplicas}
+            api_group:
               requiredDuringSchedulingIgnoredDuringExecution:
-                nodeSelectorTerms: [matchExpressions: [ {key: nodegroup, operator: In, values: [ CapInfra ] } ]]
-            count: ${DiegoApiReplicas}
-          diego_brain:
-            capabilities: ["SYS_RESOURCE"]
-            affinity:
+                nodeSelectorTerms: [matchExpressions: [ {key: nodegroup, operator: In, values: [ Default ] } ]]
+              count: ${ApiGroupReplicas}
+            cc_clock:
               requiredDuringSchedulingIgnoredDuringExecution:
-                nodeSelectorTerms: [matchExpressions: [ {key: nodegroup, operator: In, values: [ CapInfra ] } ]]
-            count: ${DiegoBrainReplicas}
-          diego_ssh:
-            capabilities: ["SYS_RESOURCE"]
-            affinity:
+                nodeSelectorTerms: [matchExpressions: [ {key: nodegroup, operator: In, values: [ Default ] } ]]
+              count: ${CcClockReplicas}
+            cc_uploader:
+              capabilities: ["SYS_RESOURCE"]
+              affinity:
+                requiredDuringSchedulingIgnoredDuringExecution:
+                  nodeSelectorTerms: [matchExpressions: [ {key: nodegroup, operator: In, values: [ CapInfra ] } ]]
+              count: ${CcUploaderReplicas}
+            cc_worker:
+              capabilities: ["SYS_RESOURCE"]
+              affinity:
+                requiredDuringSchedulingIgnoredDuringExecution:
+                  nodeSelectorTerms: [matchExpressions: [ {key: nodegroup, operator: In, values: [ CapInfra ] } ]]
+              count: ${CcWorkerReplicas}
+            cf_usb:
+              capabilities: ["SYS_RESOURCE"]
+              affinity:
+                requiredDuringSchedulingIgnoredDuringExecution:
+                  nodeSelectorTerms: [matchExpressions: [ {key: nodegroup, operator: In, values: [ CapInfra ] } ]]
+              count: ${CfUsbReplicas}
+            diego_api:
+              capabilities: ["SYS_RESOURCE"]
+              affinity:
+                requiredDuringSchedulingIgnoredDuringExecution:
+                  nodeSelectorTerms: [matchExpressions: [ {key: nodegroup, operator: In, values: [ CapInfra ] } ]]
+              count: ${DiegoApiReplicas}
+            diego_brain:
+              capabilities: ["SYS_RESOURCE"]
+              affinity:
+                requiredDuringSchedulingIgnoredDuringExecution:
+                  nodeSelectorTerms: [matchExpressions: [ {key: nodegroup, operator: In, values: [ CapInfra ] } ]]
+              count: ${DiegoBrainReplicas}
+            diego_cell:
               requiredDuringSchedulingIgnoredDuringExecution:
-                nodeSelectorTerms: [matchExpressions: [ {key: nodegroup, operator: In, values: [ CapInfra ] } ]]
-            count: ${DiegoSshReplicas}
-          nats:
-            capabilities: ["SYS_RESOURCE"]
-            affinity:
-              requiredDuringSchedulingIgnoredDuringExecution:
-                nodeSelectorTerms: [matchExpressions: [ {key: nodegroup, operator: In, values: [ CapInfra ] } ]]
-            count: ${NatsReplicas}
-          router:
-            capabilities: ["SYS_RESOURCE"]
-            affinity:
-              requiredDuringSchedulingIgnoredDuringExecution:
-                nodeSelectorTerms: [matchExpressions: [ {key: nodegroup, operator: In, values: [ CapInfra ] } ]]
-            count: ${RouterReplicas}
-          routing_api:
-            capabilities: ["SYS_RESOURCE"]
-            affinity:
-              requiredDuringSchedulingIgnoredDuringExecution:
-                nodeSelectorTerms: [matchExpressions: [ {key: nodegroup, operator: In, values: [ CapInfra ] } ]]
-            count: ${RoutingApiReplicas}
-          mysql:
-            affinity:
-              requiredDuringSchedulingIgnoredDuringExecution:
-                nodeSelectorTerms: [matchExpressions: [ {key: nodegroup, operator: In, values: [ CapInfra ] } ]]
-            count: ${ScfMysqlReplicas}
-          secret_generation:
-            affinity:
-              requiredDuringSchedulingIgnoredDuringExecution:
-                nodeSelectorTerms: [matchExpressions: [ {key: nodegroup, operator: In, values: [ CapInfra ] } ]]
-          tcp_router:
-            affinity:
-              requiredDuringSchedulingIgnoredDuringExecution:
-                nodeSelectorTerms: [matchExpressions: [ {key: nodegroup, operator: In, values: [ CapInfra ] } ]]
-            count: ${TcpRouterReplicas}
-        services:
+                nodeSelectorTerms: [matchExpressions: [ {key: nodegroup, operator: In, values: [ Default ] } ]]
+                count: ${DiegoCellReplicas}
+            diego_ssh:
+              capabilities: ["SYS_RESOURCE"]
+              affinity:
+                requiredDuringSchedulingIgnoredDuringExecution:
+                  nodeSelectorTerms: [matchExpressions: [ {key: nodegroup, operator: In, values: [ CapInfra ] } ]]
+              count: ${DiegoSshReplicas}
+            nats:
+              capabilities: ["SYS_RESOURCE"]
+              affinity:
+                requiredDuringSchedulingIgnoredDuringExecution:
+                  nodeSelectorTerms: [matchExpressions: [ {key: nodegroup, operator: In, values: [ CapInfra ] } ]]
+              count: ${NatsReplicas}
+            router:
+              capabilities: ["SYS_RESOURCE"]
+              affinity:
+                requiredDuringSchedulingIgnoredDuringExecution:
+                  nodeSelectorTerms: [matchExpressions: [ {key: nodegroup, operator: In, values: [ CapInfra ] } ]]
+              count: ${RouterReplicas}
+            routing_api:
+              capabilities: ["SYS_RESOURCE"]
+              affinity:
+                requiredDuringSchedulingIgnoredDuringExecution:
+                  nodeSelectorTerms: [matchExpressions: [ {key: nodegroup, operator: In, values: [ CapInfra ] } ]]
+              count: ${RoutingApiReplicas}
+            mysql:
+              affinity:
+                requiredDuringSchedulingIgnoredDuringExecution:
+                  nodeSelectorTerms: [matchExpressions: [ {key: nodegroup, operator: In, values: [ CapInfra ] } ]]
+              count: ${ScfMysqlReplicas}
+            secret_generation:
+              affinity:
+                requiredDuringSchedulingIgnoredDuringExecution:
+                  nodeSelectorTerms: [matchExpressions: [ {key: nodegroup, operator: In, values: [ CapInfra ] } ]]
+            tcp_router:
+              affinity:
+                requiredDuringSchedulingIgnoredDuringExecution:
+                  nodeSelectorTerms: [matchExpressions: [ {key: nodegroup, operator: In, values: [ CapInfra ] } ]]
+              count: ${TcpRouterReplicas}
+          services:
             loadbalanced: true
-        kube:
-          storage_class:
-            persistent: gp2
-            shared: gp2
-        registry:
-          hostname: "registry.suse.com"
-          username: ""
-          password: ""
-          organization: "cap"
-        auth: rbac
+            remoteAccessCidr: [ ${IngressIPs} ]
+          kube:
+            storage_class:
+              persistent: gp2
+              shared: gp2
+          registry:
+            hostname: "registry.suse.com"
+            username: ""
+            password: ""
+            organization: "cap"
+          auth: rbac
+        - IngressIPs: !Join [ ",", !Ref RemoteAccessCIDRs ]
+          HA: !If [ IsHA, true, false ]
   StratosConsoleNamespace:
     Condition: EnableConsole
     Type: "Custom::KubeManifest"
@@ -777,6 +831,7 @@ Resources:
         VPCID: !Ref VPCID
         NodeInstanceType: !Ref NodeInstanceType
         NumberOfNodes: !Ref NumberOfNodes
+        MaxNumberOfNodes: !Ref NumberOfNodes
         NodeGroupName: !Ref NodeGroupName
         NodeVolumeSize: !Ref NodeVolumeSize
         EKSControlPlane: !Ref EKSClusterName
@@ -785,9 +840,18 @@ Resources:
         KubernetesVersion: !Ref KubernetesVersion
         BootstrapArguments: "--kubelet-extra-args --node-labels=nodegroup=CapInfra"
         NodeInstanceRoleName: !Ref NodeInstanceRoleName
-        NodeAMIOS: Amazon-Linux-HVM
+        NodeAMIOS: SUSE-SLES-15-HVM
         QSS3KeyPrefix: !Sub "${QSS3KeyPrefix}submodules/quickstart-amazon-eks/"
         QSS3BucketName: !Ref QSS3BucketName
+  BastionSShToNodes:
+    Type: "AWS::EC2::SecurityGroupIngress"
+    Properties:
+      Description: Allow bastion ssh access to nodes
+      GroupId: !GetAtt NodeGroupStack.Outputs.EKSNodeSecurityGroup
+      SourceSecurityGroupId: !Ref BastionSecurityGroupID
+      IpProtocol: tcp
+      ToPort: 22
+      FromPort: 22
   DefaultNodeSecurityGroupIngress:
     Type: "AWS::EC2::SecurityGroupIngress"
     Properties:
