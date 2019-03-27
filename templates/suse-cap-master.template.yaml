@@ -505,7 +505,7 @@ Resources:
         ApiGroupReplicas: !Ref ApiGroupReplicas
         ConsoleChartVersion: "2.3.0"
         StratosWebConsole: "Disabled"
-        RemoteAccessCIDRs: !Sub "${RemoteAccessCIDR},${VPCStack.Outputs.NAT1EIP}/32,${VPCStack.Outputs.NAT2EIP}/32,${VPCStack.Outputs.NAT3EIP}/32"
+        RemoteAccessCIDRs: !Sub "${RemoteAccessCIDR},${VPCStack.Outputs.NAT1EIP}/32,${VPCStack.Outputs.NAT2EIP}/32,${VPCStack.Outputs.NAT3EIP}/32,${EKSStack.Outputs.BastionIP}/32"
         NumberOfNodes: !Ref NumberOfInfraNodes
         BastionSecurityGroupID: !GetAtt EKSStack.Outputs.BastionSecurityGroup
   AdminPassword:
