@@ -380,7 +380,7 @@ Resources:
         NodeVolumeSize: !Ref NodeVolumeSize
         LambdaZipsBucketName: !Ref LambdaZipsBucketName
         NodeInstanceType: !Ref NodeInstanceType
-        RemoteAccessCIDR: !Ref RemoteAccessCIDR
+        RemoteAccessCIDR: !Select [0, !Ref RemoteAccessCIDRs]
         AdditionalEKSAdminArns: !Join [ ",", !Ref AdditionalEKSAdminArns ]
         VPCID: !Ref VPCID
         KubernetesVersion: "1.11"
@@ -435,7 +435,10 @@ Resources:
         ApiGroupReplicas: !Ref ApiGroupReplicas
         ConsoleChartVersion: "2.3.0"
         StratosWebConsole: "Disabled"
-        RemoteAccessCIDRs: !Sub ["${EKSStack.Outputs.BastionIP}/32,${Others}", [Others: !Join [",", !Ref RemoteAccessCIDRs]]]
+        RemoteAccessCIDRs: !Sub
+          - '${BastionIP}/32,${Others}'
+          - BastionIP: !GetAtt EKSStack.Outputs.BastionIP
+            Others: !Join [",", !Ref RemoteAccessCIDRs]
         NumberOfNodes: !Ref NumberOfInfraNodes
         BastionSecurityGroupID: !GetAtt EKSStack.Outputs.BastionSecurityGroup
   AdminPassword:
