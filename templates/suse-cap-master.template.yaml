@@ -524,6 +524,11 @@ Resources:
         GenerateStringKey: "password"
         PasswordLength: 30
         ExcludePunctuation: true
+  CleanupSecurityGroupDependencies:
+    Type: Custom::Ceanup
+    Properties:
+      ServiceToken: !GetAtt 'EKSStack.Outputs.CleanupSecurityGroupDependenciesLambdaArn'
+      SecurityGroups: [!GetAtt EKSStack.Outputs.NodeGroupSecurityGroup, !GetAtt EKSStack.Outputs.BastionSecurityGroup, !GetAtt CapStack.Outputs.NodeSecurityGroup]
 Outputs:
   KubeConfigPath:
     Value: !GetAtt EKSStack.Outputs.KubeConfigPath
