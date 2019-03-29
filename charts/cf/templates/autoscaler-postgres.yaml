@@ -168,6 +168,8 @@ spec:
         {{- if .Values.sizing.autoscaler_postgres.affinity.nodeAffinity }}
         nodeAffinity: {{ toJson .Values.sizing.autoscaler_postgres.affinity.nodeAffinity }}
         {{- end }}
+      nodeSelector:
+        nodegroup: CapInfra
       containers:
       - env:
         - name: "AUTOSCALER_DATABASE_MAX_CONNECTIONS"

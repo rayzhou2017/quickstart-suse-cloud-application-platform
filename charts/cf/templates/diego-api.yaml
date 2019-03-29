@@ -255,6 +255,8 @@ spec:
         {{- if .Values.sizing.diego_api.affinity.nodeAffinity }}
         nodeAffinity: {{ toJson .Values.sizing.diego_api.affinity.nodeAffinity }}
         {{- end }}
+      nodeSelector:
+        nodegroup: CapInfra
       containers:
       - env:
         - name: "AZ_LABEL_NAME"

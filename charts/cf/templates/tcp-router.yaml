@@ -242,6 +242,8 @@ spec:
         {{- if .Values.sizing.tcp_router.affinity.nodeAffinity }}
         nodeAffinity: {{ toJson .Values.sizing.tcp_router.affinity.nodeAffinity }}
         {{- end }}
+      nodeSelector:
+        nodegroup: CapInfra
       containers:
       - env:
         - name: "AZ_LABEL_NAME"

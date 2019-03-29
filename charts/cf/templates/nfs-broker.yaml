@@ -184,6 +184,8 @@ spec:
         {{- if .Values.sizing.nfs_broker.affinity.nodeAffinity }}
         nodeAffinity: {{ toJson .Values.sizing.nfs_broker.affinity.nodeAffinity }}
         {{- end }}
+      nodeSelector:
+        nodegroup: CapInfra
       containers:
       - env:
         - name: "AZ_LABEL_NAME"

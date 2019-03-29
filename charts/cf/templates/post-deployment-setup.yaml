@@ -46,6 +46,8 @@ spec:
       annotations:
         checksum/config: {{ include (print $.Template.BasePath "/secrets.yaml") . | sha256sum }}
     spec:
+      nodeSelector:
+        nodegroup: CapInfra
       containers:
       - env:
         {{- if not .Values.secrets.AUTOSCALER_UAA_CLIENT_SECRET }}

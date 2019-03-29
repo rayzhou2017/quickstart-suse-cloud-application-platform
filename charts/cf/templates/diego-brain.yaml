@@ -190,6 +190,8 @@ spec:
         {{- if .Values.sizing.diego_brain.affinity.nodeAffinity }}
         nodeAffinity: {{ toJson .Values.sizing.diego_brain.affinity.nodeAffinity }}
         {{- end }}
+      nodeSelector:
+        nodegroup: CapInfra
       containers:
       - env:
         {{- if not .Values.secrets.AUCTIONEER_REP_CERT }}

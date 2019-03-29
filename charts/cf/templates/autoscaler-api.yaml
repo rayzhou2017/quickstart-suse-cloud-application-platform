@@ -216,6 +216,8 @@ spec:
         {{- if .Values.sizing.autoscaler_api.affinity.nodeAffinity }}
         nodeAffinity: {{ toJson .Values.sizing.autoscaler_api.affinity.nodeAffinity }}
         {{- end }}
+      nodeSelector:
+        nodegroup: CapInfra
       containers:
       - env:
         - name: "AUTOSCALER_API_SERVER_CACHE_TTL"

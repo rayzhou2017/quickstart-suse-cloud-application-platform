@@ -231,6 +231,8 @@ spec:
         {{- if .Values.sizing.uaa.affinity.nodeAffinity }}
         nodeAffinity: {{ toJson .Values.sizing.uaa.affinity.nodeAffinity }}
         {{- end }}
+      nodeSelector:
+        nodegroup: CapInfra
       containers:
       - env:
         - name: "AEK_PASSWORD"

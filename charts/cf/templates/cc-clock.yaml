@@ -113,6 +113,8 @@ spec:
         {{- if .Values.sizing.cc_clock.affinity.nodeAffinity }}
         nodeAffinity: {{ toJson .Values.sizing.cc_clock.affinity.nodeAffinity }}
         {{- end }}
+      nodeSelector:
+        nodegroup: CapInfra
       containers:
       - env:
         - name: "ALLOW_APP_SSH_ACCESS"

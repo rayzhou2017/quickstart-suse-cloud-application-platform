@@ -168,6 +168,8 @@ spec:
         {{- if .Values.sizing.autoscaler_metrics.affinity.nodeAffinity }}
         nodeAffinity: {{ toJson .Values.sizing.autoscaler_metrics.affinity.nodeAffinity }}
         {{- end }}
+      nodeSelector:
+        nodegroup: CapInfra
       containers:
       - env:
         {{- if not .Values.secrets.AUTOSCALER_ASMETRICS_SERVER_CERT }}

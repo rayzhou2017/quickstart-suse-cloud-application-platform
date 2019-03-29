@@ -182,6 +182,8 @@ spec:
         {{- if .Values.sizing.syslog_scheduler.affinity.nodeAffinity }}
         nodeAffinity: {{ toJson .Values.sizing.syslog_scheduler.affinity.nodeAffinity }}
         {{- end }}
+      nodeSelector:
+        nodegroup: CapInfra
       containers:
       - env:
         - name: "AZ_LABEL_NAME"

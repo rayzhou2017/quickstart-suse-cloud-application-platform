@@ -273,6 +273,8 @@ spec:
         {{- if .Values.sizing.router.affinity.nodeAffinity }}
         nodeAffinity: {{ toJson .Values.sizing.router.affinity.nodeAffinity }}
         {{- end }}
+      nodeSelector:
+        nodegroup: Default
       containers:
       - env:
         - name: "AZ_LABEL_NAME"

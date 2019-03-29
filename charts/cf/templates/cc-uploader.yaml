@@ -196,6 +196,8 @@ spec:
         {{- if .Values.sizing.cc_uploader.affinity.nodeAffinity }}
         nodeAffinity: {{ toJson .Values.sizing.cc_uploader.affinity.nodeAffinity }}
         {{- end }}
+      nodeSelector:
+        nodegroup: CapInfra
       containers:
       - env:
         - name: "AZ_LABEL_NAME"

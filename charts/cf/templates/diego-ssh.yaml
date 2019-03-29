@@ -271,6 +271,8 @@ spec:
         {{- if .Values.sizing.diego_ssh.affinity.nodeAffinity }}
         nodeAffinity: {{ toJson .Values.sizing.diego_ssh.affinity.nodeAffinity }}
         {{- end }}
+      nodeSelector:
+        nodegroup: CapInfra
       containers:
       - env:
         {{- if not .Values.secrets.APP_SSH_KEY }}

@@ -380,6 +380,8 @@ spec:
         {{- if .Values.sizing.diego_cell.affinity.nodeAffinity }}
         nodeAffinity: {{ toJson .Values.sizing.diego_cell.affinity.nodeAffinity }}
         {{- end }}
+      nodeSelector:
+        nodegroup: Default
       containers:
       - env:
         - name: "AZ_LABEL_NAME"

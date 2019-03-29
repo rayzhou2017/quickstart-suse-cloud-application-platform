@@ -168,6 +168,8 @@ spec:
         {{- if .Values.sizing.autoscaler_scalingengine.affinity.nodeAffinity }}
         nodeAffinity: {{ toJson .Values.sizing.autoscaler_scalingengine.affinity.nodeAffinity }}
         {{- end }}
+      nodeSelector:
+        nodegroup: CapInfra
       containers:
       - env:
         - name: "AUTOSCALER_CF_SKIP_SSL_VALIDATION"
