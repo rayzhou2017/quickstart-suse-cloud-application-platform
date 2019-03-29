@@ -580,17 +580,20 @@ Resources:
           sizing:
             mysql:
               affinity:
-                requiredDuringSchedulingIgnoredDuringExecution:
-                  nodeSelectorTerms: [matchExpressions: [ {key: nodegroup, operator: In, values: [ CapInfra ] } ]]
+                nodeAffinity:
+                  requiredDuringSchedulingIgnoredDuringExecution:
+                    nodeSelectorTerms: [matchExpressions: [ {key: nodegroup, operator: In, values: [ CapInfra ] } ]]
               count: ${UaaMysqlReplicas}
             secret_generation:
               affinity:
-                requiredDuringSchedulingIgnoredDuringExecution:
-                  nodeSelectorTerms: [matchExpressions: [ {key: nodegroup, operator: In, values: [ CapInfra ] } ]]
+                nodeAffinity:
+                  requiredDuringSchedulingIgnoredDuringExecution:
+                    nodeSelectorTerms: [matchExpressions: [ {key: nodegroup, operator: In, values: [ CapInfra ] } ]]
             uaa:
               affinity:
-                requiredDuringSchedulingIgnoredDuringExecution:
-                  nodeSelectorTerms: [matchExpressions: [ {key: nodegroup, operator: In, values: [ CapInfra ] } ]]
+                nodeAffinity:
+                  requiredDuringSchedulingIgnoredDuringExecution:
+                    nodeSelectorTerms: [matchExpressions: [ {key: nodegroup, operator: In, values: [ CapInfra ] } ]]
               count: ${UaaReplicas}
           services:
             loadbalanced: true
@@ -678,88 +681,108 @@ Resources:
             GARDEN_APPARMOR_PROFILE: ""
           sizing:
             adapter:
-              requiredDuringSchedulingIgnoredDuringExecution:
-                nodeSelectorTerms: [matchExpressions: [ {key: nodegroup, operator: In, values: [ Default ] } ]]
+              affinity:
+                nodeAffinity:
+                  requiredDuringSchedulingIgnoredDuringExecution:
+                    nodeSelectorTerms: [matchExpressions: [ {key: nodegroup, operator: In, values: [ CapInfra ] } ]]
               count: ${AdapterReplicas}
             api_group:
-              requiredDuringSchedulingIgnoredDuringExecution:
-                nodeSelectorTerms: [matchExpressions: [ {key: nodegroup, operator: In, values: [ Default ] } ]]
+              affinity:
+                nodeAffinity:
+                  requiredDuringSchedulingIgnoredDuringExecution:
+                    nodeSelectorTerms: [matchExpressions: [ {key: nodegroup, operator: In, values: [ CapInfra ] } ]]
               count: ${ApiGroupReplicas}
             cc_clock:
-              requiredDuringSchedulingIgnoredDuringExecution:
-                nodeSelectorTerms: [matchExpressions: [ {key: nodegroup, operator: In, values: [ Default ] } ]]
+              affinity:
+                nodeAffinity:
+                  requiredDuringSchedulingIgnoredDuringExecution:
+                    nodeSelectorTerms: [matchExpressions: [ {key: nodegroup, operator: In, values: [ CapInfra ] } ]]
               count: ${CcClockReplicas}
             cc_uploader:
               capabilities: ["SYS_RESOURCE"]
               affinity:
-                requiredDuringSchedulingIgnoredDuringExecution:
-                  nodeSelectorTerms: [matchExpressions: [ {key: nodegroup, operator: In, values: [ CapInfra ] } ]]
+                nodeAffinity:
+                  requiredDuringSchedulingIgnoredDuringExecution:
+                    nodeSelectorTerms: [matchExpressions: [ {key: nodegroup, operator: In, values: [ CapInfra ] } ]]
               count: ${CcUploaderReplicas}
             cc_worker:
               capabilities: ["SYS_RESOURCE"]
               affinity:
-                requiredDuringSchedulingIgnoredDuringExecution:
-                  nodeSelectorTerms: [matchExpressions: [ {key: nodegroup, operator: In, values: [ CapInfra ] } ]]
+                nodeAffinity:
+                  requiredDuringSchedulingIgnoredDuringExecution:
+                    nodeSelectorTerms: [matchExpressions: [ {key: nodegroup, operator: In, values: [ CapInfra ] } ]]
               count: ${CcWorkerReplicas}
             cf_usb:
               capabilities: ["SYS_RESOURCE"]
               affinity:
-                requiredDuringSchedulingIgnoredDuringExecution:
-                  nodeSelectorTerms: [matchExpressions: [ {key: nodegroup, operator: In, values: [ CapInfra ] } ]]
+                nodeAffinity:
+                  requiredDuringSchedulingIgnoredDuringExecution:
+                    nodeSelectorTerms: [matchExpressions: [ {key: nodegroup, operator: In, values: [ CapInfra ] } ]]
               count: ${CfUsbReplicas}
             diego_api:
               capabilities: ["SYS_RESOURCE"]
               affinity:
-                requiredDuringSchedulingIgnoredDuringExecution:
-                  nodeSelectorTerms: [matchExpressions: [ {key: nodegroup, operator: In, values: [ CapInfra ] } ]]
+                nodeAffinity:
+                  requiredDuringSchedulingIgnoredDuringExecution:
+                    nodeSelectorTerms: [matchExpressions: [ {key: nodegroup, operator: In, values: [ CapInfra ] } ]]
               count: ${DiegoApiReplicas}
             diego_brain:
               capabilities: ["SYS_RESOURCE"]
               affinity:
-                requiredDuringSchedulingIgnoredDuringExecution:
-                  nodeSelectorTerms: [matchExpressions: [ {key: nodegroup, operator: In, values: [ CapInfra ] } ]]
+                nodeAffinity:
+                  requiredDuringSchedulingIgnoredDuringExecution:
+                    nodeSelectorTerms: [matchExpressions: [ {key: nodegroup, operator: In, values: [ CapInfra ] } ]]
               count: ${DiegoBrainReplicas}
             diego_cell:
-              requiredDuringSchedulingIgnoredDuringExecution:
-                nodeSelectorTerms: [matchExpressions: [ {key: nodegroup, operator: In, values: [ Default ] } ]]
-                count: ${DiegoCellReplicas}
+              affinity:
+                nodeAffinity:
+                  requiredDuringSchedulingIgnoredDuringExecution:
+                    nodeSelectorTerms: [matchExpressions: [ {key: nodegroup, operator: In, values: [ Default ] } ]]
+              count: ${DiegoCellReplicas}
             diego_ssh:
               capabilities: ["SYS_RESOURCE"]
               affinity:
-                requiredDuringSchedulingIgnoredDuringExecution:
-                  nodeSelectorTerms: [matchExpressions: [ {key: nodegroup, operator: In, values: [ CapInfra ] } ]]
+                nodeAffinity:
+                  requiredDuringSchedulingIgnoredDuringExecution:
+                    nodeSelectorTerms: [matchExpressions: [ {key: nodegroup, operator: In, values: [ CapInfra ] } ]]
               count: ${DiegoSshReplicas}
             nats:
               capabilities: ["SYS_RESOURCE"]
               affinity:
-                requiredDuringSchedulingIgnoredDuringExecution:
-                  nodeSelectorTerms: [matchExpressions: [ {key: nodegroup, operator: In, values: [ CapInfra ] } ]]
+                nodeAffinity:
+                  requiredDuringSchedulingIgnoredDuringExecution:
+                    nodeSelectorTerms: [matchExpressions: [ {key: nodegroup, operator: In, values: [ CapInfra ] } ]]
               count: ${NatsReplicas}
             router:
               capabilities: ["SYS_RESOURCE"]
               affinity:
-                requiredDuringSchedulingIgnoredDuringExecution:
-                  nodeSelectorTerms: [matchExpressions: [ {key: nodegroup, operator: In, values: [ CapInfra ] } ]]
+                nodeAffinity:
+                  requiredDuringSchedulingIgnoredDuringExecution:
+                    nodeSelectorTerms: [matchExpressions: [ {key: nodegroup, operator: In, values: [ Default ] } ]]
               count: ${RouterReplicas}
             routing_api:
               capabilities: ["SYS_RESOURCE"]
               affinity:
-                requiredDuringSchedulingIgnoredDuringExecution:
-                  nodeSelectorTerms: [matchExpressions: [ {key: nodegroup, operator: In, values: [ CapInfra ] } ]]
+                nodeAffinity:
+                  requiredDuringSchedulingIgnoredDuringExecution:
+                    nodeSelectorTerms: [matchExpressions: [ {key: nodegroup, operator: In, values: [ CapInfra ] } ]]
               count: ${RoutingApiReplicas}
             mysql:
               affinity:
-                requiredDuringSchedulingIgnoredDuringExecution:
-                  nodeSelectorTerms: [matchExpressions: [ {key: nodegroup, operator: In, values: [ CapInfra ] } ]]
+                nodeAffinity:
+                  requiredDuringSchedulingIgnoredDuringExecution:
+                    nodeSelectorTerms: [matchExpressions: [ {key: nodegroup, operator: In, values: [ CapInfra ] } ]]
               count: ${ScfMysqlReplicas}
             secret_generation:
               affinity:
-                requiredDuringSchedulingIgnoredDuringExecution:
-                  nodeSelectorTerms: [matchExpressions: [ {key: nodegroup, operator: In, values: [ CapInfra ] } ]]
+                nodeAffinity:
+                  requiredDuringSchedulingIgnoredDuringExecution:
+                    nodeSelectorTerms: [matchExpressions: [ {key: nodegroup, operator: In, values: [ CapInfra ] } ]]
             tcp_router:
               affinity:
-                requiredDuringSchedulingIgnoredDuringExecution:
-                  nodeSelectorTerms: [matchExpressions: [ {key: nodegroup, operator: In, values: [ CapInfra ] } ]]
+                nodeAffinity:
+                  requiredDuringSchedulingIgnoredDuringExecution:
+                    nodeSelectorTerms: [matchExpressions: [ {key: nodegroup, operator: In, values: [ CapInfra ] } ]]
               count: ${TcpRouterReplicas}
           services:
             loadbalanced: true
