@@ -990,3 +990,5 @@ Outputs:
     Value: !Sub 'https://api.${SubDomainPrefix}.${DomainName}'
   StratosConsoleEndpoint:
     Value: !If [EnableConsole, !Sub 'https://${SubDomainPrefix}.${DomainName}', '']
+  NodeSecurityGroup:
+    Value: !GetAtt NodeGroupStack.Outputs.EKSNodeSecurityGroup
