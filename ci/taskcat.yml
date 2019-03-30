@@ -3,14 +3,19 @@ global:
   owner: quickstart-eng@amazon.com
   qsname: quickstart-suse-cloud-application-platform
   regions:
-    - eu-west-1
     - us-east-1
+    - us-east-2
     - us-west-2
+    - eu-central-1
+    - eu-west-1
+    - eu-west-2
+    - eu-west-3
+    - ap-northeast-1
+    - ap-southeast-1
+    - ap-southeast-2
   reporting: true
   package-lambda: true
 tests:
   quickstart-suse-cap-defaults:
     parameter_input: suse-cap-defaults.json
     template_file: suse-cap-master.template.yaml
-    regions:
-      - us-west-2
