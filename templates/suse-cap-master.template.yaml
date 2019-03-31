@@ -453,7 +453,7 @@ Resources:
         RemoteAccessCIDR: !Ref RemoteAccessCIDR
         AdditionalEKSAdminArns: !Join [ ",", !Ref AdditionalEKSAdminArns ]
         VPCID: !GetAtt VPCStack.Outputs.VPCID
-        KubernetesVersion: "1.11"
+        KubernetesVersion: "1.12"
         BastionOS: SUSE-SLES-15-HVM
         NodeAMIOS: SUSE-SLES-15-HVM
         BootstrapArguments: "--kubelet-extra-args --node-labels=nodegroup=Default"
@@ -470,7 +470,7 @@ Resources:
         ControlPlaneSecurityGroup: !GetAtt EKSStack.Outputs.ControlPlaneSecurityGroup
         EKSClusterName: !GetAtt EKSStack.Outputs.EKSClusterName
         NodeInstanceProfile: !GetAtt EKSStack.Outputs.NodeInstanceProfile
-        KubernetesVersion: "1.11"
+        KubernetesVersion: "1.12"
         PrivateSubnet1ID: !GetAtt VPCStack.Outputs.PrivateSubnet1AID
         PrivateSubnet2ID: !GetAtt VPCStack.Outputs.PrivateSubnet2AID
         PrivateSubnet3ID: !GetAtt VPCStack.Outputs.PrivateSubnet3AID
