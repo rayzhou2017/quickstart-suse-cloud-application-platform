@@ -16,7 +16,7 @@ Each deployment takes about 45 minutes.
 
 You can also use the AWS CloudFormation templates as a starting point for your own implementation.
 
-![Quick Start architecture for SUSE Cloud Application Platform on AWS](https://d1.awsstatic.com/partner-network/QuickStart/datasheets/suse-cap-architecture-on-aws.png)
+![Quick Start architecture for SUSE Cloud Application Platform on AWS](https://d0.awsstatic.com/partner-network/QuickStart/datasheets/suse-cap-architecture-on-aws.png)
 
 For architectural details, best practices, step-by-step instructions, and customization options, see the 
 [deployment guide](https://fwd.aws/eb5pW).
