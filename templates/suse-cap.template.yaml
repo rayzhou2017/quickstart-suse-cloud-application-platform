@@ -204,7 +204,10 @@ Parameters:
 Conditions:
   CreateLambdaZipsBucket: !Equals [!Ref 'LambdaZipsBucketName', '']
   EnableConsole: !Equals [!Ref StratosWebConsole, 'Enabled']
-  IsHA: !Not [!Equals [!Ref NumberOfNodes, 1]]
+  IsHA: !Not
+    - !Or
+      - !Equals [!Ref NumberOfNodes, 1]
+      - !Equals [!Ref DiegoCellReplicas, 1]
 Resources:
   LambdaZipsBucket:
     Type: AWS::S3::Bucket
@@ -813,10 +816,31 @@ Resources:
         apiVersion: v1
         metadata:
           name: stratos
+  StratosConsoleStorageClass:
+    Condition: EnableConsole
+    Type: "Custom::KubeManifest"
+    Version: '1.0'
+    DependsOn: Scf
+    Properties:
+      ServiceToken: !Ref KubeManifestLambdaArn
+      KubeConfigPath: !Ref KubeConfigPath
+      KubeConfigKmsContext: !Ref KubeConfigKmsContext
+      Manifest:
+        kind: StorageClass
+        apiVersion: storage.k8s.io/v1
+        metadata:
+          name: gp2scoped
+        provisioner: kubernetes.io/aws-ebs
+        parameters:
+          type: gp2
+          zone: "us-west-2a"
+        reclaimPolicy: Retain
+        mountOptions:
+          - debug
   StratosConsole:
     Condition: EnableConsole
     Type: "Custom::Helm"
-    DependsOn: Scf
+    DependsOn: StratosConsoleStorageClass
     Version: '1.0'
     Properties:
       ServiceToken: !Ref HelmLambdaArn
@@ -829,19 +853,27 @@ Resources:
       Values:
         env.DOMAIN: !Sub '${SubDomainPrefix}.${DomainName}'
         env.UAA_HOST: !Sub "uaa.${SubDomainPrefix}.${DomainName}"
-      ValueYaml: |
-        storageClass: gp2
-        env:
-          UAA_PORT: 2793
-        kube:
-          external_console_https_port: 443
-          storage_class:
-            persistent: gp2
-          organization: cap
-        services:
-          loadbalanced: true
-        metrics:
-          enabled: true
+      ValueYaml: !Sub
+        - |
+          storageClass: gp2
+          env:
+            UAA_PORT: 2793
+          kube:
+            external_console_https_port: 443
+            storage_class:
+              persistent: gp2scoped
+            organization: cap
+          services:
+            loadbalanced: true
+          metrics:
+            enabled: true
+          console:
+            service:
+              loadBalancerSourceRanges: [ "${IngressIPs}" ]
+              annotations:
+                service.beta.kubernetes.io/aws-load-balancer-ssl-cert: ${AcmArn}
+        - IngressIPs: !Join [ '", "', !Ref RemoteAccessCIDRs ]
+          AcmArn: !GetAtt ACMCertificateDNS.Arn
   NodeGroupStack:
     Type: "AWS::CloudFormation::Stack"
     Properties:

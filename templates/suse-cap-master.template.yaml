@@ -1,6 +1,17 @@
 AWSTemplateFormatVersion: "2010-09-09"
 Description: Deploys Suse Cloud Application Platform into a new EKS cluster in a new VPC (qs-1p817shr2)
 Metadata:
+  LintSpellExclude:
+    - Suse
+    - Cloud
+    - Application
+    - Platform
+    - foundry
+    - dcd
+    - vpc
+    - kubernetes
+    - uploader
+    - Stratos
   AWS::CloudFormation::Interface:
     ParameterGroups:
       - Label:
@@ -35,8 +46,9 @@ Metadata:
           - NodeVolumeSize
           - AdditionalEKSAdminArns
       - Label:
-          default: SUSE Cloud Application Platform scaling
+          default: SUSE Cloud Application Platform configuration
         Parameters:
+          - StratosWebConsole
           - UaaReplicas
           - UaaMysqlReplicas
           - TcpRouterReplicas
@@ -136,7 +148,8 @@ Metadata:
         default: Number of CC worker replicas
       CfUsbReplicas:
         default: Number of CF USB replicas
-  LintSpellExclude: ["uploader", "vpc-", "dcd"]
+      StratosWebConsole:
+        default: Stratos web console
 Parameters:
   AvailabilityZones:
     Description: The list of Availability Zones to use for the subnets in the VPC. The Quick Starts uses three
@@ -392,6 +405,11 @@ Parameters:
     Default: 2
     Type: Number
     Description: "The number of CF USB replicas to deploy."
+  StratosWebConsole:
+    Type: String
+    AllowedValues: ["Enabled", "Disabled"]
+    Default: "Disabled"
+    Description: The Stratos web console provides a web based UI
 Rules:
   EKSSupport:
     Assertions:
@@ -504,7 +522,7 @@ Resources:
         AdapterReplicas: !Ref AdapterReplicas
         ApiGroupReplicas: !Ref ApiGroupReplicas
         ConsoleChartVersion: "2.3.0"
-        StratosWebConsole: "Disabled"
+        StratosWebConsole: !Ref StratosWebConsole
         RemoteAccessCIDRs: !Sub "${RemoteAccessCIDR},${VPCStack.Outputs.NAT1EIP}/32,${VPCStack.Outputs.NAT2EIP}/32,${VPCStack.Outputs.NAT3EIP}/32,${EKSStack.Outputs.BastionIP}/32"
         NumberOfNodes: !Ref NumberOfInfraNodes
         BastionSecurityGroupID: !GetAtt EKSStack.Outputs.BastionSecurityGroup
@@ -542,3 +560,5 @@ Outputs:
     Value: !Ref AdminPassword
   UaaPassword:
     Value: !Ref UaaPassword
+  ConsoleEndpoint:
+    Value: !GetAtt CapStack.Outputs.StratosConsoleEndpoint
