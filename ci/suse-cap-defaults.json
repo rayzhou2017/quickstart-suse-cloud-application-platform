@@ -26,5 +26,9 @@
   {
     "ParameterKey": "SubDomainPrefix",
     "ParameterValue": "$[taskcat_random-string]"
+  },
+  {
+    "ParameterKey": "StratosWebConsole",
+    "ParameterValue": "Enabled"
   }
 ]
