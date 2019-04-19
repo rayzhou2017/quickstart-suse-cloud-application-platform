@@ -34,8 +34,9 @@ Metadata:
         - NodeVolumeSize
         - AdditionalEKSAdminArns
     - Label:
-        default: SUSE Cloud Application Platform scaling
+        default: SUSE Cloud Application Platform configuration
       Parameters:
+        - StratosWebConsole
         - UaaReplicas
         - UaaMysqlReplicas
         - TcpRouterReplicas
@@ -133,7 +134,19 @@ Metadata:
         default: Private subnet 3 ID
       VPCID:
         default: VPC ID
-  LintSpellExclude: ["uploader", "vpc-", "dcd", "Diego"]
+      StratosWebConsole:
+        default: Stratos web console
+  LintSpellExclude:
+    - Suse
+    - Cloud
+    - Application
+    - Platform
+    - foundry
+    - dcd
+    - vpc
+    - kubernetes
+    - uploader
+    - Stratos
 Parameters:
   KeyPairName:
     Description: The name of an existing public/private key pair, which allows you
@@ -360,6 +373,11 @@ Parameters:
   PrivateSubnet3ID:
     Type: "AWS::EC2::Subnet::Id"
     Description: The ID of the private subnet in Availability Zone 3 in your existing VPC (e.g., subnet-abd39039)
+  StratosWebConsole:
+    Type: String
+    AllowedValues: ["Enabled", "Disabled"]
+    Default: "Disabled"
+    Description: The Stratos web console provides a web based UI
 Resources:
   EKSStack:
     Type: AWS::CloudFormation::Stack
@@ -434,7 +452,7 @@ Resources:
         AdapterReplicas: !Ref AdapterReplicas
         ApiGroupReplicas: !Ref ApiGroupReplicas
         ConsoleChartVersion: "2.3.0"
-        StratosWebConsole: "Disabled"
+        StratosWebConsole: !Ref StratosWebConsole
         RemoteAccessCIDRs: !Sub
           - '${BastionIP}/32,${Others}'
           - BastionIP: !GetAtt EKSStack.Outputs.BastionIP
@@ -470,3 +488,5 @@ Outputs:
     Value: !Ref AdminPassword
   UaaPassword:
     Value: !Ref UaaPassword
+  ConsoleEndpoint:
+    Value: !GetAtt CapStack.Outputs.StratosConsoleEndpoint
