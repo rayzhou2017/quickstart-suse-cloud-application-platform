@@ -855,7 +855,7 @@ Resources:
         env.UAA_HOST: !Sub "uaa.${SubDomainPrefix}.${DomainName}"
       ValueYaml: !Sub
         - |
-          storageClass: gp2
+          storageClass: gp2scoped
           env:
             UAA_PORT: 2793
           kube:
