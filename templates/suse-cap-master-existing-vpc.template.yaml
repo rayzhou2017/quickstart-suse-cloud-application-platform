@@ -459,6 +459,7 @@ Resources:
             Others: !Join [",", !Ref RemoteAccessCIDRs]
         NumberOfNodes: !Ref NumberOfInfraNodes
         BastionSecurityGroupID: !GetAtt EKSStack.Outputs.BastionSecurityGroup
+        StratosAZ: !Sub '${AWS::Region}a'
   AdminPassword:
     Type: 'AWS::SecretsManager::Secret'
     Properties:

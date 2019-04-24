@@ -201,6 +201,8 @@ Parameters:
     Type: CommaDelimitedList
   BastionSecurityGroupID:
     Type: AWS::EC2::SecurityGroup::Id
+  StratosAZ:
+    Type: String
 Conditions:
   CreateLambdaZipsBucket: !Equals [!Ref 'LambdaZipsBucketName', '']
   EnableConsole: !Equals [!Ref StratosWebConsole, 'Enabled']
@@ -833,7 +835,7 @@ Resources:
         provisioner: kubernetes.io/aws-ebs
         parameters:
           type: gp2
-          zone: "us-west-2a"
+          zone: !Ref StratosAZ
         reclaimPolicy: Retain
         mountOptions:
           - debug
