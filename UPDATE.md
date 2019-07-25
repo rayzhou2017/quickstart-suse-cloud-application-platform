@@ -11,6 +11,5 @@ Steps for upgrading the CAP version:
 - helm fetch --version `version` -d $(pwd)/charts suse/uaa
 
 ##Links
-![Quick Start architecture for SUSE Cloud Application Platform on AWS](https://d0.awsstatic.com/partner-network/QuickStart/datasheets/suse-cap-architecture-on-aws.png)
 [deployment guide](https://fwd.aws/eb5pW).
 [AWS Quick Start Contributor's Kit](https://aws-quickstart.github.io/). 
