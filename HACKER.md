@@ -15,7 +15,7 @@ Deploying from source:
 
 ##Testing
 cf create-org SUSE
-cf create space DEMO
+cf create-space DEMO
 cf target -s DEMO
 git clone https://github.com/troytop/dizzylizard
 cf push
