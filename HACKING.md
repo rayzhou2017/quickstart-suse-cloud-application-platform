@@ -9,9 +9,9 @@ Deploying from source:
 4) aws s3 mb bucket
 5) aws s3 sync $(pwd)/quickstart-suse-cloud-application-platform/ s3://bucket/version/ --exclude '.git/*' --exclude '*/.git/*'
 6) aws cloudformation create-stack --stack-name stackname --template-url s3://bucket/version/templates/suse-cap-master.template.yaml
-7) cf login --skip-ssl-validation -a <CfApiEndpoint Output>
+7) cf login --skip-ssl-validation -a `<CfApiEndpoint Output>`
   - user: admin
-  - password: <AWS Secrets Manager AdminPassword>
+  - password: `<AWS Secrets Manager AdminPassword>`
 
 ##Testing
 cf create-org SUSE

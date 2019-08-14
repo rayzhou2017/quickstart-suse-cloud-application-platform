@@ -544,6 +544,19 @@ Resources:
               finally:
                   timer.cancel()
                   cfnresponse.send(event, context, status, {}, physical_resource_id)
+  EiriniNamespace:
+    Type: "Custom::KubeManifest"
+    Version: '1.0'
+    DependsOn: NodeGroupStack
+    Properties:
+      ServiceToken: !Ref KubeManifestLambdaArn
+      KubeConfigPath: !Ref KubeConfigPath
+      KubeConfigKmsContext: !Ref KubeConfigKmsContext
+      Manifest:
+        kind: Namespace
+        apiVersion: v1
+        metadata:
+          name: eirini
   UaaNamespace:
     Type: "Custom::KubeManifest"
     Version: '1.0'
@@ -724,33 +737,6 @@ Resources:
                   requiredDuringSchedulingIgnoredDuringExecution:
                     nodeSelectorTerms: [matchExpressions: [ {key: nodegroup, operator: In, values: [ CapInfra ] } ]]
               count: ${CfUsbReplicas}
-            diego_api:
-              capabilities: ["SYS_RESOURCE"]
-              affinity:
-                nodeAffinity:
-                  requiredDuringSchedulingIgnoredDuringExecution:
-                    nodeSelectorTerms: [matchExpressions: [ {key: nodegroup, operator: In, values: [ CapInfra ] } ]]
-              count: ${DiegoApiReplicas}
-            diego_brain:
-              capabilities: ["SYS_RESOURCE"]
-              affinity:
-                nodeAffinity:
-                  requiredDuringSchedulingIgnoredDuringExecution:
-                    nodeSelectorTerms: [matchExpressions: [ {key: nodegroup, operator: In, values: [ CapInfra ] } ]]
-              count: ${DiegoBrainReplicas}
-            diego_cell:
-              affinity:
-                nodeAffinity:
-                  requiredDuringSchedulingIgnoredDuringExecution:
-                    nodeSelectorTerms: [matchExpressions: [ {key: nodegroup, operator: In, values: [ Default ] } ]]
-              count: ${DiegoCellReplicas}
-            diego_ssh:
-              capabilities: ["SYS_RESOURCE"]
-              affinity:
-                nodeAffinity:
-                  requiredDuringSchedulingIgnoredDuringExecution:
-                    nodeSelectorTerms: [matchExpressions: [ {key: nodegroup, operator: In, values: [ CapInfra ] } ]]
-              count: ${DiegoSshReplicas}
             nats:
               capabilities: ["SYS_RESOURCE"]
               affinity:
@@ -796,6 +782,9 @@ Resources:
             storage_class:
               persistent: gp2
               shared: gp2
+            auth: rbac
+          enable:
+            eirini: true
           registry:
             hostname: "registry.suse.com"
             username: ""
