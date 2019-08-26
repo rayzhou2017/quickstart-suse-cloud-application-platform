@@ -1,0 +1,7 @@
+e2debcbef5a46fbe78b3e15c71c2b872  ./cf-2.17.1.tgz
+e2debcbef5a46fbe78b3e15c71c2b872  ./cf.tgz
+ccfd193db332573f057818c769123b23  ./uaa-2.17.1.tgz
+ccfd193db332573f057818c769123b23  ./uaa.tgz
+
+Chart		Version
+2.17.1		CAP 1.4.1
