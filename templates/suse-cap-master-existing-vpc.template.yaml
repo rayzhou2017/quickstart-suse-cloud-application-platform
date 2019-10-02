@@ -460,6 +460,7 @@ Resources:
         NumberOfNodes: !Ref NumberOfInfraNodes
         BastionSecurityGroupID: !GetAtt EKSStack.Outputs.BastionSecurityGroup
         StratosAZ: !Sub '${AWS::Region}a'
+        CleanupSecurityGroupDependenciesLambdaArn: !GetAtt 'EKSStack.Outputs.CleanupSecurityGroupDependenciesLambdaArn'
   AdminPassword:
     Type: 'AWS::SecretsManager::Secret'
     Properties:

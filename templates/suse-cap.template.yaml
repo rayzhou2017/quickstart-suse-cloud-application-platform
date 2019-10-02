@@ -1,6 +1,8 @@
 AWSTemplateFormatVersion: "2010-09-09"
 Description: Deploys Suse Cloud Application Platform into an existing Kubernetes Cluster (qs-1p817shrd)
 Parameters:
+  CleanupSecurityGroupDependenciesLambdaArn:
+    Type: String
   HelmLambdaArn:
     Type: String
   KubeManifestLambdaArn:
@@ -901,6 +903,7 @@ Resources:
         NodeAMIOS: SUSE-SLES-15-HVM
         QSS3KeyPrefix: !Sub "${QSS3KeyPrefix}submodules/quickstart-amazon-eks/"
         QSS3BucketName: !Ref QSS3BucketName
+        CleanupSecurityGroupDependenciesLambdaArn: !Ref CleanupSecurityGroupDependenciesLambdaArn
   BastionSShToNodes:
     Type: "AWS::EC2::SecurityGroupIngress"
     Properties:
