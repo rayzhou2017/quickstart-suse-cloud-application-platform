@@ -568,7 +568,7 @@ Resources:
       KubeConfigPath: !Ref KubeConfigPath
       KubeConfigKmsContext: !Ref KubeConfigKmsContext
       ChartBucket: !Ref QSS3BucketName
-      ChartKey: !Sub '${QSS3KeyPrefix}charts/uaa-v1.tgz'
+      ChartKey: !Sub '${QSS3KeyPrefix}charts/uaa.tgz'
       Namespace: !GetAtt UaaNamespace.name
       Values:
         env.DOMAIN: !Sub '${SubDomainPrefix}.${DomainName}'
