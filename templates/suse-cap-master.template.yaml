@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: "2010-09-09"
-Description: Deploys Suse Cloud Application Platform into a new EKS cluster in a new VPC (qs-1p817shr2)
+Description: Deploys Suse Cloud Application Platform into a new EKS cluster in a new VPC (qs-1p817shr2) 
 Metadata:
   LintSpellExclude:
     - Suse
