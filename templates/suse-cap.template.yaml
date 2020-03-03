@@ -580,6 +580,7 @@ Resources:
         - |
           config:
             HA: ${HA}
+            HA_strict: false
           env:
             UAA_PORT: 2793
             GARDEN_ROOTFS_DRIVER: overlay-xfs
@@ -872,6 +873,7 @@ Resources:
           metrics:
             enabled: true
           console:
+            techPreview: true
             service:
               loadBalancerSourceRanges: [ '"${IngressIPs}"' ]
               annotations:

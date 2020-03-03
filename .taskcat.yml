@@ -1,0 +1,22 @@
+project:
+  name: quickstart-suse-cloud-application-platform
+  owner: quickstart-eng@amazon.com
+  package_lambda: false
+  regions:
+  - us-east-1
+  s3_bucket: suse-cap-152
+tests:
+  quickstart-suse-cap-defaults:
+    parameters:
+      AvailabilityZones: $[taskcat_genaz_3]
+      DomainName: susedemo5.de 
+      HostedZoneID: Z2RORGYBVMB9LX
+      KeyPairName: access
+      QSS3BucketName: suse-cap-152 
+      RemoteAccessCIDR: 10.0.0.0/16
+      StratosWebConsole: Enabled
+      SubDomainPrefix: $[taskcat_random-string]
+    regions:
+    - us-east-1
+    s3_bucket: suse-cap-152
+    template: templates/suse-cap-master.template.yaml
