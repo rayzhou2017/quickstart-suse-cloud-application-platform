@@ -9,6 +9,3 @@ tests:
   quickstart-suse-cap-defaults:
     parameter_input: suse-cap-defaults.json
     template_file: suse-cap-master.template.yaml
-general:
-  auth:
-    default: openbare
