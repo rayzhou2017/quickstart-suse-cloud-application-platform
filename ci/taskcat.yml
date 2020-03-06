@@ -3,7 +3,9 @@ global:
   owner: quickstart-eng@amazon.com
   qsname: quickstart-suse-cloud-application-platform
   regions:
+    - us-west-2
     - us-east-1
+    - eu-west-1
   reporting: true
 tests:
   quickstart-suse-cap-defaults:
