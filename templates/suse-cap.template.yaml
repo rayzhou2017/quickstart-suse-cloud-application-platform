@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: "2010-09-09"
-Description: Deploys Suse Cloud Application Platform into an existing Kubernetes Cluster (qs-1p817shrd)
+Description: Deploys Suse Cloud Application Platform into an existing Kubernetes Cluster (qs-1p817shrd) 
 Parameters:
   CleanupSecurityGroupDependenciesLambdaArn:
     Type: String
@@ -143,16 +143,16 @@ Parameters:
     Default: ""
     Type: String
   UaaMysqlReplicas:
-    Default: 2
+    Default: 3
     Type: Number
   UaaReplicas:
-    Default: 2
+    Default: 3
     Type: Number
   TcpRouterReplicas:
     Default: 2
     Type: Number
   ScfMysqlReplicas:
-    Default: 2
+    Default: 3
     Type: Number
   RoutingApiReplicas:
     Default: 2
@@ -580,6 +580,7 @@ Resources:
         - |
           config:
             HA: ${HA}
+            HA_strict: false
           env:
             UAA_PORT: 2793
             GARDEN_ROOTFS_DRIVER: overlay-xfs
@@ -872,6 +873,7 @@ Resources:
           metrics:
             enabled: true
           console:
+            techPreview: true
             service:
               loadBalancerSourceRanges: [ '"${IngressIPs}"' ]
               annotations:

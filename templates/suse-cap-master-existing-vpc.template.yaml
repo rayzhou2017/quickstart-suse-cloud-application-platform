@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: "2010-09-09"
-Description: Deploys Suse Cloud Application Platform into a new EKS cluster in an existing VPC (qs-1p817shor)
+Description: Deploys Suse Cloud Application Platform into a new EKS cluster in an existing VPC (qs-1p817shor) 
 Metadata:
   AWS::CloudFormation::Interface:
     ParameterGroups:

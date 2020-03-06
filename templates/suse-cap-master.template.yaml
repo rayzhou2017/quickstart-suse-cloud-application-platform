@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: "2010-09-09"
-Description: Deploys Suse Cloud Application Platform into a new EKS cluster in a new VPC (qs-1p817shr2)
+Description: Deploys Suse Cloud Application Platform into a new EKS cluster in a new VPC (qs-1p817shr2) 
 Metadata:
   LintSpellExclude:
     - Suse
@@ -342,11 +342,11 @@ Parameters:
     Description: 'The prefix to add to the base domain to create a new Route 53 hosted zone. Before you launch the
       Quick Start, make sure that a hosted zone with this name does not exist.'
   UaaMysqlReplicas:
-    Default: 2
+    Default: 3 
     Type: Number
     Description: "The number of UAA MySQL replicas to deploy."
-  UaaReplicas:
-    Default: 2
+  UaaReplicas: 
+    Default: 3 
     Type: Number
     Description: "The number of UAA replicas to deploy."
   TcpRouterReplicas:
@@ -354,7 +354,7 @@ Parameters:
     Type: Number
     Description: "The number of TCP router replicas to deploy."
   ScfMysqlReplicas:
-    Default: 2
+    Default: 3 
     Type: Number
     Description: "SUSE Cloud Foundry (SCF) MySQL replicas to deploy."
   RoutingApiReplicas:
@@ -521,7 +521,7 @@ Resources:
         CfUsbReplicas: !Ref CfUsbReplicas
         AdapterReplicas: !Ref AdapterReplicas
         ApiGroupReplicas: !Ref ApiGroupReplicas
-        ConsoleChartVersion: "2.3.0"
+        ConsoleChartVersion: "2.7.0"
         StratosWebConsole: !Ref StratosWebConsole
         RemoteAccessCIDRs: !Sub "${RemoteAccessCIDR},${VPCStack.Outputs.NAT1EIP}/32,${VPCStack.Outputs.NAT2EIP}/32,${VPCStack.Outputs.NAT3EIP}/32,${EKSStack.Outputs.BastionIP}/32"
         NumberOfNodes: !Ref NumberOfInfraNodes
