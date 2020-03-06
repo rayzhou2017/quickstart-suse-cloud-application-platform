@@ -12,4 +12,4 @@ tests:
     parameter_input: suse-cap-defaults.json
     template_file: suse-cap-master.template.yaml
     regions:
-      - us-east-1
+    - us-east-1
