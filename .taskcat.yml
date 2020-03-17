@@ -1,0 +1,17 @@
+project:
+  name: quickstart-suse-cloud-application-platform
+  regions:
+  - us-east-2
+  - us-west-2
+  parameters:
+    AvailabilityZones: $[taskcat_genaz_3]
+    DomainName: override
+    HostedZoneID: override
+    KeyPairName: override
+    QSS3BucketName: $[taskcat_autobucket]
+    RemoteAccessCIDR: 10.0.0.0/16
+    StratosWebConsole: Enabled
+    SubDomainPrefix: $[taskcat_random-string]
+  template: templates/suse-cap-master.template.yaml
+tests:
+  defaults: {}
