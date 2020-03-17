@@ -31,6 +31,9 @@ Parameters:
   QSS3KeyPrefix:
     Type: String
     Default: quickstart-suse-cloud-application-platform/
+  QSS3BucketRegion:
+    Default: 'us-east-1'
+    Type: String
   KeyPairName:
     Type: AWS::EC2::KeyPair::KeyName
   VPCID:
@@ -212,6 +215,7 @@ Conditions:
     - !Or
       - !Equals [!Ref NumberOfNodes, 1]
       - !Equals [!Ref DiegoCellReplicas, 1]
+  UsingDefaultBucket: !Equals [!Ref QSS3BucketName, 'aws-quickstart']
 Resources:
   LambdaZipsBucket:
     Type: AWS::S3::Bucket
@@ -567,7 +571,7 @@ Resources:
       ServiceToken: !Ref HelmLambdaArn
       KubeConfigPath: !Ref KubeConfigPath
       KubeConfigKmsContext: !Ref KubeConfigKmsContext
-      ChartBucket: !Ref QSS3BucketName
+      ChartBucket: !If [UsingDefaultBucket, !Sub '${QSS3BucketName}-${AWS::Region}', !Ref QSS3BucketName]
       ChartKey: !Sub '${QSS3KeyPrefix}charts/uaa.tgz'
       Namespace: !GetAtt UaaNamespace.name
       Values:
@@ -669,7 +673,7 @@ Resources:
       ServiceToken: !Ref HelmLambdaArn
       KubeConfigPath: !Ref KubeConfigPath
       KubeConfigKmsContext: !Ref KubeConfigKmsContext
-      ChartBucket: !Ref QSS3BucketName
+      ChartBucket: !If [UsingDefaultBucket, !Sub '${QSS3BucketName}-${AWS::Region}', !Ref QSS3BucketName]
       ChartKey: !Sub '${QSS3KeyPrefix}charts/cf.tgz'
       Namespace: !GetAtt ScfNamespace.name
       Values:
@@ -884,7 +888,10 @@ Resources:
   NodeGroupStack:
     Type: "AWS::CloudFormation::Stack"
     Properties:
-      TemplateURL: !Sub 'https://${QSS3BucketName}.s3.amazonaws.com/${QSS3KeyPrefix}submodules/quickstart-amazon-eks/templates/amazon-eks-nodegroup.template.yaml'
+      TemplateURL: !Sub
+        - 'https://${S3Bucket}.s3.${S3Region}.${AWS::URLSuffix}/${QSS3KeyPrefix}submodules/quickstart-amazon-eks/templates/amazon-eks-nodegroup.template.yaml'
+        - S3Region: !If [UsingDefaultBucket, !Ref 'AWS::Region', !Ref QSS3BucketRegion]
+          S3Bucket: !If [UsingDefaultBucket, !Sub '${QSS3BucketName}-${AWS::Region}', !Ref QSS3BucketName]
       Parameters:
         KeyPairName: !Ref 'KeyPairName'
         PrivateSubnet1ID: !Ref PrivateSubnet1ID
@@ -905,6 +912,7 @@ Resources:
         NodeAMIOS: SUSE-SLES-15-HVM
         QSS3KeyPrefix: !Sub "${QSS3KeyPrefix}submodules/quickstart-amazon-eks/"
         QSS3BucketName: !Ref QSS3BucketName
+        QSS3BucketRegion: !Ref QSS3BucketRegion
         CleanupSecurityGroupDependenciesLambdaArn: !Ref CleanupSecurityGroupDependenciesLambdaArn
   BastionSShToNodes:
     Type: "AWS::EC2::SecurityGroupIngress"
@@ -946,13 +954,15 @@ Resources:
             Statement:
               - Effect: Allow
                 Action: s3:GetObject
-                Resource: !Sub 'arn:aws:s3:::${QSS3BucketName}/${QSS3KeyPrefix}*'
+                Resource: !Sub
+                - 'arn:${AWS::Partition}:s3:::${S3Bucket}/${QSS3KeyPrefix}*'
+                - S3Bucket: !If [UsingDefaultBucket, !Sub '${QSS3BucketName}-${AWS::Region}', !Ref QSS3BucketName]
               - Effect: Allow
                 Action:
                   - s3:PutObject
                   - s3:DeleteObject
                 Resource: !Sub
-                  - 'arn:aws:s3:::${DestBucket}/${QSS3KeyPrefix}*'
+                  - 'arn:${AWS::Partition}:s3:::${DestBucket}/${QSS3KeyPrefix}*'
                   - DestBucket: !If [ CreateLambdaZipsBucket, !Ref LambdaZipsBucket, !Ref LambdaZipsBucketName ]
   CopyZipsFunction:
     Type: AWS::Lambda::Function
@@ -1019,7 +1029,7 @@ Resources:
     Properties:
       ServiceToken: !GetAtt 'CopyZipsFunction.Arn'
       DestBucket: !If [ CreateLambdaZipsBucket, !Ref LambdaZipsBucket, !Ref LambdaZipsBucketName ]
-      SourceBucket: !Ref 'QSS3BucketName'
+      SourceBucket: !If [UsingDefaultBucket, !Sub '${QSS3BucketName}-${AWS::Region}', !Ref QSS3BucketName]
       Prefix: !Ref 'QSS3KeyPrefix'
       Objects:
         - functions/packages/ACMCert/lambda.zip

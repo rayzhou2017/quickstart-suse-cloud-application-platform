@@ -58,6 +58,7 @@ Metadata:
       Parameters:
         - QSS3BucketName
         - QSS3KeyPrefix
+        - QSS3BucketRegion
         - LambdaZipsBucketName
     ParameterLabels:
       KeyPairName:
@@ -66,6 +67,8 @@ Metadata:
         default: Quick Start S3 bucket name
       QSS3KeyPrefix:
         default: Quick Start S3 key prefix
+      QSS3BucketRegion:
+        default: Quick Start S3 bucket region
       RemoteAccessCIDR:
         default: Allowed external access CIDR
       NodeInstanceType:
@@ -170,6 +173,10 @@ Parameters:
     Description: S3 key prefix for the Quick Start assets. Quick Start key prefix
       can include numbers, lowercase letters, uppercase letters, hyphens (-), and
       forward slash (/).
+    Type: String
+  QSS3BucketRegion:
+    Default: 'us-east-1'
+    Description: "The AWS Region where the Quick Start S3 bucket (QSS3BucketName) is hosted. When using your own bucket, you must specify this value."
     Type: String
   RemoteAccessCIDRs:
     Description: A comma seperated list of CIDR IP ranges that are permitted to access the instances. We recommend
@@ -378,17 +385,23 @@ Parameters:
     AllowedValues: ["Enabled", "Disabled"]
     Default: "Disabled"
     Description: The Stratos web console provides a web based UI
+Conditions:
+  UsingDefaultBucket: !Equals [!Ref QSS3BucketName, 'aws-quickstart']
 Resources:
   EKSStack:
     Type: AWS::CloudFormation::Stack
     Properties:
-      TemplateURL: !Sub 'https://${QSS3BucketName}.s3.amazonaws.com/${QSS3KeyPrefix}submodules/quickstart-amazon-eks/templates/amazon-eks.template.yaml'
+      TemplateURL: !Sub
+        - 'https://${S3Bucket}.s3.${S3Region}.${AWS::URLSuffix}/${QSS3KeyPrefix}submodules/quickstart-amazon-eks/templates/amazon-eks.template.yaml'
+        - S3Region: !If [UsingDefaultBucket, !Ref 'AWS::Region', !Ref QSS3BucketRegion]
+          S3Bucket: !If [UsingDefaultBucket, !Sub '${QSS3BucketName}-${AWS::Region}', !Ref QSS3BucketName]
       Parameters:
         PublicSubnet1ID: !Ref PublicSubnet1ID
         PublicSubnet2ID: !Ref PublicSubnet2ID
         PublicSubnet3ID: !Ref PublicSubnet3ID
         KeyPairName: !Ref KeyPairName
         QSS3BucketName: !Ref QSS3BucketName
+        QSS3BucketRegion: !Ref QSS3BucketRegion
         QSS3KeyPrefix: !Sub "${QSS3KeyPrefix}submodules/quickstart-amazon-eks/"
         PrivateSubnet1ID: !Ref PrivateSubnet1ID
         PrivateSubnet2ID: !Ref PrivateSubnet2ID
@@ -405,11 +418,17 @@ Resources:
         BastionOS: SUSE-SLES-15-HVM
         NodeAMIOS: SUSE-SLES-15-HVM
         BootstrapArguments: "--kubelet-extra-args --node-labels=nodegroup=Default"
-        BastionBootstrapScript: !Sub 'https://${QSS3BucketName}.s3.amazonaws.com/${QSS3KeyPrefix}scripts/bastion_bootstrap.sh'
+        BastionBootstrapScript: !Sub
+          - 'https://${S3Bucket}.s3.${S3Region}.${AWS::URLSuffix}/${QSS3KeyPrefix}scripts/bastion_bootstrap.sh'
+          - S3Region: !If [UsingDefaultBucket, !Ref 'AWS::Region', !Ref QSS3BucketRegion]
+            S3Bucket: !If [UsingDefaultBucket, !Sub '${QSS3BucketName}-${AWS::Region}', !Ref QSS3BucketName]
   CapStack:
     Type: AWS::CloudFormation::Stack
     Properties:
-      TemplateURL: !Sub 'https://${QSS3BucketName}.s3.amazonaws.com/${QSS3KeyPrefix}templates/suse-cap.template.yaml'
+      TemplateURL: !Sub
+        - 'https://${S3Bucket}.s3.${S3Region}.${AWS::URLSuffix}/${QSS3KeyPrefix}templates/suse-cap.template.yaml'
+        - S3Region: !If [UsingDefaultBucket, !Ref 'AWS::Region', !Ref QSS3BucketRegion]
+          S3Bucket: !If [UsingDefaultBucket, !Sub '${QSS3BucketName}-${AWS::Region}', !Ref QSS3BucketName]
       Parameters:
         KubeManifestLambdaArn: !GetAtt EKSStack.Outputs.KubeManifestLambdaArn
         KubeGetLambdaArn: !GetAtt EKSStack.Outputs.KubeGetLambdaArn
@@ -426,6 +445,7 @@ Resources:
         HelmLambdaArn: !GetAtt EKSStack.Outputs.HelmLambdaArn
         AdminPassword: !Join ['', ['{{resolve:secretsmanager:', !Ref AdminPassword, ':SecretString:password}}' ]]
         QSS3BucketName: !Ref QSS3BucketName
+        QSS3BucketRegion: !Ref QSS3BucketRegion
         QSS3KeyPrefix: !Ref QSS3KeyPrefix
         KeyPairName: !Ref KeyPairName
         UaaPassword: !Join ['', ['{{resolve:secretsmanager:', !Ref UaaPassword, ':SecretString:password}}' ]]
