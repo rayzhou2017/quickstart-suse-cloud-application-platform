@@ -1,5 +1,7 @@
 project:
-  name: quickstart-suse-cloud-application-platform
+  name: quickstart-suse-cap
+  lambda_source_path: functions/source
+  lambda_zip_path: functions/packages
   regions:
   - us-east-2
   - us-west-2
@@ -12,6 +14,7 @@ project:
     RemoteAccessCIDR: 10.0.0.0/16
     StratosWebConsole: Enabled
     SubDomainPrefix: $[taskcat_random-string]
+    QSS3BucketRegion: $[taskcat_current_region]
   template: templates/suse-cap-master.template.yaml
 tests:
   defaults: {}
