@@ -30,7 +30,7 @@ Parameters:
     Type: String
   QSS3KeyPrefix:
     Type: String
-    Default: quickstart-suse-cloud-application-platform/
+    Default: quickstart-suse-cap/
   QSS3BucketRegion:
     Default: 'us-east-1'
     Type: String
@@ -291,7 +291,7 @@ Resources:
       Name: !Sub '${SubDomainPrefix}.${DomainName}'
       ResourceRecords: !GetAtt 'Route53HostedSubdomainZone.NameServers'
       Type: NS
-      TTL: '600'
+      TTL: 600
   ScfWildcardDns:
     Type: AWS::Route53::RecordSet
     Properties:

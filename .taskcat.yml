@@ -7,9 +7,6 @@ project:
   - us-west-2
   parameters:
     AvailabilityZones: $[taskcat_genaz_3]
-    DomainName: override
-    HostedZoneID: override
-    KeyPairName: override
     QSS3BucketName: $[taskcat_autobucket]
     RemoteAccessCIDR: 10.0.0.0/16
     StratosWebConsole: Enabled
