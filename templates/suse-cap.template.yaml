@@ -128,7 +128,7 @@ Parameters:
   KubernetesVersion:
     Type: String
     AllowedValues: [ "1.15", "1.14", "1.13" ]
-    Default: "1.15"
+    Default: "1.14"
   UaaPassword:
     Type: String
     NoEcho: true
