@@ -30,7 +30,7 @@ Parameters:
     Type: String
   QSS3KeyPrefix:
     Type: String
-    Default: quickstart-suse-cap/
+    Default: quickstart-suse-cloud-application-platform/
   QSS3BucketRegion:
     Default: 'us-east-1'
     Type: String
