@@ -904,7 +904,6 @@ Resources:
         NodeGroupName: !Ref NodeGroupName
         NodeVolumeSize: !Ref NodeVolumeSize
         EKSControlPlane: !Ref EKSClusterName
-        EKSClusterName: !Ref EKSClusterName
         ControlPlaneSecurityGroup: !Ref ControlPlaneSecurityGroup
         NodeInstanceProfile: !Ref NodeInstanceProfile
         KubernetesVersion: !Ref KubernetesVersion
