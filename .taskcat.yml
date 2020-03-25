@@ -1,10 +1,11 @@
 project:
-  name: quickstart-suse-cap
+  name: quickstart-suse-cloud-application-platform
   lambda_source_path: functions/source
   lambda_zip_path: functions/packages
   regions:
   - us-east-2
   - us-west-2
+  shorten_stack_name: true
   parameters:
     AvailabilityZones: $[taskcat_genaz_3]
     QSS3BucketName: $[taskcat_autobucket]
