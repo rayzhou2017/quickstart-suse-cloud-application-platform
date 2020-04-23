@@ -4,15 +4,15 @@ project:
   lambda_zip_path: functions/packages
   regions:
   - us-east-2
-  - us-west-2
   shorten_stack_name: true
   parameters:
     AvailabilityZones: $[taskcat_genaz_3]
     QSS3BucketName: $[taskcat_autobucket]
     RemoteAccessCIDR: 10.0.0.0/16
-    StratosWebConsole: Enabled
+    StratosWebConsole: disabled
     SubDomainPrefix: $[taskcat_random-string]
     QSS3BucketRegion: $[taskcat_current_region]
   template: templates/suse-cap-master.template.yaml
 tests:
-  defaults: {}
+  default:
+    template: templates/suse-cap-master.template.yaml

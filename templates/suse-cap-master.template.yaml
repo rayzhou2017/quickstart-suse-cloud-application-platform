@@ -544,7 +544,7 @@ Resources:
         CfUsbReplicas: !Ref CfUsbReplicas
         AdapterReplicas: !Ref AdapterReplicas
         ApiGroupReplicas: !Ref ApiGroupReplicas
-        ConsoleChartVersion: "2.7.0"
+        ConsoleChartVersion: "3.0.0"
         StratosWebConsole: !Ref StratosWebConsole
         RemoteAccessCIDRs: !Sub "${RemoteAccessCIDR},${VPCStack.Outputs.NAT1EIP}/32,${VPCStack.Outputs.NAT2EIP}/32,${VPCStack.Outputs.NAT3EIP}/32,${EKSStack.Outputs.BastionIP}/32"
         NumberOfNodes: !Ref NumberOfInfraNodes

@@ -2,3 +2,4 @@
 /functions/packages
 /taskcat_outputs
 *.DS_Store
+.taskcat/
