@@ -9,7 +9,7 @@ project:
     AvailabilityZones: $[taskcat_genaz_3]
     QSS3BucketName: $[taskcat_autobucket]
     RemoteAccessCIDR: 10.0.0.0/16
-    StratosWebConsole: disabled
+    StratosWebConsole: Disabled
     SubDomainPrefix: $[taskcat_random-string]
     QSS3BucketRegion: $[taskcat_current_region]
   template: templates/suse-cap-master.template.yaml
